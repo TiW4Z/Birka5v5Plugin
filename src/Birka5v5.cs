@@ -67,7 +67,7 @@ public partial class Birka5v5Plugin : BasePlugin
     private void OnMapStart(string mapName)
     {
         // Any recording ends when the map changes.
-        OnDemoEndedByMapChange();
+        demoRecording = false;
 
         AddTimer(1.0f, () =>
         {
