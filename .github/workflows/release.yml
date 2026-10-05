@@ -1,0 +1,54 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Build
+        run: dotnet build -c Release -p:Version="${GITHUB_REF_NAME#v}"
+
+      - name: Package
+        run: |
+          PLUGIN_DIR=addons/counterstrikesharp/plugins/Birka5v5
+
+          # Full install: plugin + all cfg files
+          mkdir -p "pkg/full/$PLUGIN_DIR" pkg/full/cfg/Birka5v5
+          cp bin/Release/net8.0/Birka5v5.dll "pkg/full/$PLUGIN_DIR/"
+          cp cfg/Birka5v5/*.cfg pkg/full/cfg/Birka5v5/
+          (cd pkg/full && zip -r "../../Birka5v5-${GITHUB_REF_NAME}.zip" .)
+
+          # Update: plugin only, leaves the server's cfg files alone
+          mkdir -p "pkg/update/$PLUGIN_DIR"
+          cp bin/Release/net8.0/Birka5v5.dll "pkg/update/$PLUGIN_DIR/"
+          (cd pkg/update && zip -r "../../Birka5v5-${GITHUB_REF_NAME}-update.zip" .)
+
+      - name: Create release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          cat > notes.md <<NOTES
+          ## Install
+          Upload and extract into the server's \`csgo\` folder (the one containing \`addons\` and \`cfg\`):
+
+          - **Birka5v5-${GITHUB_REF_NAME}.zip**: first install. Plugin + \`cfg/Birka5v5/\` (config.cfg, warmup.cfg, knife.cfg, live.cfg).
+          - **Birka5v5-${GITHUB_REF_NAME}-update.zip**: update. Only the plugin DLL, so your edited cfg files are kept.
+
+          Restart the server (or change map) after uploading.
+          NOTES
+          gh release create "$GITHUB_REF_NAME" Birka5v5-*.zip \
+            --title "Birka5v5 ${GITHUB_REF_NAME}" \
+            --notes-file notes.md \
+            --generate-notes

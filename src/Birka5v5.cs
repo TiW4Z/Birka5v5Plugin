@@ -23,7 +23,8 @@ public enum MatchPhase
 public partial class Birka5v5Plugin : BasePlugin
 {
     public override string ModuleName => "Birka5v5";
-    public override string ModuleVersion => "1.0.0";
+    // Set from the git tag by the release workflow (dotnet build -p:Version=...).
+    public override string ModuleVersion => typeof(Birka5v5Plugin).Assembly.GetName().Version?.ToString(3) ?? "dev";
     public override string ModuleAuthor => "Birka";
     public override string ModuleDescription => "Ready-up, map veto, knife, demos, pause and restore for community 5v5 matches";
 

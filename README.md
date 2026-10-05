@@ -5,10 +5,27 @@ ready-up → map veto (team vote, center HUD) → map change → ready-up → kn
 
 ## Install
 
-1. Build: `dotnet build -c Release`
+Download a zip from [Releases](../../releases) and extract it into the server's `csgo` folder (the one containing `addons` and `cfg`):
+
+- `Birka5v5-vX.Y.Z.zip`: first install, plugin + `cfg/Birka5v5/`
+- `Birka5v5-vX.Y.Z-update.zip`: update, plugin DLL only (keeps your edited cfg files)
+
+For demos, set `tv_enable 1` in `server.cfg` (don't change `tv_enable`/`tv_delay` in warmup/live cfg).
+
+### Building manually
+
+1. `dotnet build -c Release`
 2. Copy `bin/Release/net8.0/Birka5v5.dll` to `csgo/addons/counterstrikesharp/plugins/Birka5v5/`
 3. Copy the `cfg/Birka5v5/` folder to `csgo/cfg/Birka5v5/`
-4. For demos, set `tv_enable 1` in `server.cfg` (don't change `tv_enable`/`tv_delay` in warmup/live cfg).
+
+### Making a release
+
+Push a version tag; GitHub Actions builds both zips and publishes the release:
+
+```
+git tag v1.0.1
+git push origin v1.0.1
+```
 
 Built against CounterStrikeSharp.API 1.0.368 (the last net8.0 release); it also runs on newer CSS builds.
 
