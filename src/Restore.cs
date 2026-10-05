@@ -90,40 +90,90 @@ public partial class Birka5v5Plugin
         return dirs.Select(Path.GetFullPath).Distinct().Where(Directory.Exists).ToList();
     }
 
+    private static readonly EnumerationOptions RecursiveSearch = new()
+    {
+        RecurseSubdirectories = true,
+        MaxRecursionDepth = 4,
+        IgnoreInaccessible = true,
+    };
+
     /// <summary>1-based round number -> backup file path for the current match.</summary>
     private Dictionary<int, string> FindBackupFiles()
     {
         var result = new Dictionary<int, string>();
         if (matchId.Length == 0) return result;
 
-        // Matches both "<prefix>_round03.txt" and longer patterns that contain "_round03".
-        var regex = new Regex($@"^{Regex.Escape(BackupPrefix)}.*_round(\d+).*\.txt$", RegexOptions.IgnoreCase);
-        foreach (var dir in BackupSearchDirectories())
+        // Our prefix first; the engine's actual mp_backup_round_file value as a fallback in case ours didn't apply.
+        var prefixes = new List<string> { BackupPrefix };
+        string enginePrefix = Clean(ConVar.Find("mp_backup_round_file")?.StringValue);
+        if (enginePrefix.Length > 0 && !prefixes.Contains(enginePrefix)) prefixes.Add(enginePrefix);
+
+        foreach (var prefix in prefixes)
         {
-            try
+            // Likely folders first, then the whole game/ folder.
+            foreach (var dir in BackupSearchDirectories())
             {
-                foreach (var path in Directory.EnumerateFiles(dir, $"{BackupPrefix}*.txt"))
-                {
-                    var match = regex.Match(Path.GetFileName(path));
-                    if (!match.Success) continue;
-                    int round = int.Parse(match.Groups[1].Value) + 1;
-                    result.TryAdd(round, path); // first directory wins (csgo/ is searched early)
-                }
+                AddBackupMatches(result, prefix, dir, SearchOption.TopDirectoryOnly);
             }
-            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            if (result.Count == 0)
             {
+                AddBackupMatches(result, prefix, Server.GameDirectory, SearchOption.AllDirectories);
             }
+            if (result.Count > 0) break;
         }
         return result;
+    }
+
+    private static void AddBackupMatches(Dictionary<int, string> result, string prefix, string dir, SearchOption option)
+    {
+        // Matches both "<prefix>_round03.txt" and longer patterns that contain "_round03".
+        var regex = new Regex($@"^{Regex.Escape(prefix)}.*_round(\d+).*\.txt$", RegexOptions.IgnoreCase);
+        try
+        {
+            var files = option == SearchOption.AllDirectories
+                ? Directory.EnumerateFiles(dir, $"{prefix}*.txt", RecursiveSearch)
+                : Directory.EnumerateFiles(dir, $"{prefix}*.txt");
+            foreach (var path in files)
+            {
+                var match = regex.Match(Path.GetFileName(path));
+                if (!match.Success) continue;
+                result.TryAdd(int.Parse(match.Groups[1].Value) + 1, path); // first folder wins
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+    }
+
+    /// <summary>Newest "*round*.txt" files anywhere under game/, for troubleshooting where the engine writes backups.</summary>
+    private static List<string> FindRecentRoundFiles(int count)
+    {
+        try
+        {
+            return Directory.EnumerateFiles(Server.GameDirectory, "*round*.txt", RecursiveSearch)
+                .Select(p => new FileInfo(p))
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .Take(count)
+                .Select(f => $"{f.FullName} ({f.LastWriteTime:yyyy-MM-dd HH:mm})")
+                .ToList();
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            return new List<string>();
+        }
     }
 
     private void ReportMissingBackups(CCSPlayerController? player)
     {
         var dirs = BackupSearchDirectories();
-        string last = Clean(ConVar.Find("mp_backup_round_file_last")?.StringValue);
-        Logger.LogWarning("No round backups found for prefix {Prefix}. mp_backup_round_file_last='{Last}'. Searched: {Dirs}",
-            BackupPrefix, last, string.Join(" | ", dirs));
-        Reply(player, $"No backup files found for {BackupPrefix}. Details were written to the server console.");
+        Logger.LogWarning("No round backups found for prefix {Prefix}. mp_backup_round_file='{File}' mp_backup_round_file_last='{Last}' mp_backup_round_auto={Auto}. Searched: {Dirs} and game/ recursively",
+            BackupPrefix,
+            Clean(ConVar.Find("mp_backup_round_file")?.StringValue),
+            Clean(ConVar.Find("mp_backup_round_file_last")?.StringValue),
+            GetConVarNumber("mp_backup_round_auto"),
+            string.Join(" | ", dirs));
+        foreach (var file in FindRecentRoundFiles(5)) Logger.LogWarning("Recent round file: {File}", file);
+        Reply(player, $"No backup files found for {BackupPrefix}. Run birka_status in the server console for details.");
     }
 
     private static bool SamePath(string a, string b) =>

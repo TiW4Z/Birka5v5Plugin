@@ -2,6 +2,7 @@ using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
+using CounterStrikeSharp.API.Modules.Cvars;
 using CounterStrikeSharp.API.Modules.Utils;
 
 namespace Birka5v5;
@@ -129,5 +130,9 @@ public partial class Birka5v5Plugin
             info.ReplyToCommand($"[Birka5v5] backups prefix={BackupPrefix} found={backups.Count} cwd={Directory.GetCurrentDirectory()}");
             foreach (var path in backups.OrderBy(b => b.Key).Select(b => b.Value).Take(3)) info.ReplyToCommand($"  {path}");
         }
+        info.ReplyToCommand($"[Birka5v5] mp_backup_round_file='{Clean(ConVar.Find("mp_backup_round_file")?.StringValue)}' mp_backup_round_file_last='{Clean(ConVar.Find("mp_backup_round_file_last")?.StringValue)}' mp_backup_round_auto={GetConVarNumber("mp_backup_round_auto")} game_dir={Server.GameDirectory}");
+        var recent = FindRecentRoundFiles(5);
+        info.ReplyToCommand($"[Birka5v5] newest *round*.txt files under game/: {(recent.Count == 0 ? "none" : "")}");
+        foreach (var file in recent) info.ReplyToCommand($"  {file}");
     }
 }
