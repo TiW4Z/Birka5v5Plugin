@@ -61,9 +61,8 @@ public partial class Birka5v5Plugin
 
         // Restoring always pauses; both teams have to .unpause (or an admin .forceunpause).
         Server.ExecuteCommand("mp_pause_match");
+        ResetPauseState(); // a restore pause replaces any disconnect pause
         isPaused = true;
-        unpauseT = false;
-        unpauseCT = false;
 
         PrintAll($"Admin {Hl(player?.PlayerName ?? "Console")} restored the match to the start of {Hl($"round {round}")}.");
         PrintAll($"The match is paused. Both teams must type {Hl(".unpause")} to continue.");

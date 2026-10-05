@@ -37,6 +37,11 @@ public partial class Birka5v5Plugin
             ["fup"] = (p, _) => CmdForceUnpause(p),
             ["restore"] = (p, args) => CmdRestore(p, args),
             ["reset"] = (p, _) => CmdReset(p),
+            ["restart"] = (p, _) => CmdReset(p),
+            ["rr"] = (p, _) => CmdReset(p),
+            ["endmatch"] = (p, _) => CmdReset(p),
+            ["forceend"] = (p, _) => CmdReset(p),
+            ["map"] = CmdMap,
             ["elo"] = CmdElo,
             ["rank"] = CmdElo,
             ["top"] = (p, _) => CmdTop(p),
@@ -100,7 +105,7 @@ public partial class Birka5v5Plugin
         Reply(player, $"{Hl(".ready")}/{Hl(".unready")}, {Hl(".pause")}/{Hl(".unpause")}, {Hl(".veto list")}, vote with a number during the veto, {Hl(".stay")}/{Hl(".switch")} after knife, {Hl(".elo [name]")}, {Hl(".top")}.");
         if (IsAdmin(player))
         {
-            Reply(player, $"Admin: {Hl(".forcestart")}, {Hl(".veto")} (toggle), {Hl(".veto add/remove <map>")}, {Hl(".veto mode ban|pick")}, {Hl(".restore <round>")}, {Hl(".forcepause")}, {Hl(".forceunpause")}, {Hl(".reset")}, {Hl(".balance [on|off]")}, {Hl(".elo set <name> <rating>")}");
+            Reply(player, $"Admin: {Hl(".forcestart")}, {Hl(".veto")} (toggle), {Hl(".veto add/remove <map>")}, {Hl(".veto mode ban|pick")}, {Hl(".restore <round>")}, {Hl(".forcepause")}, {Hl(".forceunpause")}, {Hl(".reset")}/{Hl(".rr")}, {Hl(".map <name>")}, {Hl(".balance [on|off]")}, {Hl(".elo set <name> <rating>")}");
         }
     }
 
@@ -109,6 +114,49 @@ public partial class Birka5v5Plugin
         if (!RequireAdmin(player)) return;
         PrintAll($"{ChatColors.Red}Admin reset the match.");
         EnterWarmup();
+    }
+
+    /// <summary>.map &lt;name|pool number|workshop id&gt;: change map; the new map starts in warmup.</summary>
+    private void CmdMap(CCSPlayerController player, string[] args)
+    {
+        if (!RequireAdmin(player)) return;
+        if (args.Length == 0)
+        {
+            Reply(player, "Usage: .map <name>, .map <veto pool number> or .map <workshop id>");
+            return;
+        }
+        if (phase is MatchPhase.Knife or MatchPhase.KnifeDecision or MatchPhase.Live)
+        {
+            Reply(player, $"A match is running. Use {Hl(".reset")} first.");
+            return;
+        }
+
+        string input = args[0];
+        MapEntry? map = FindMap(GetMapPool(), input);
+        if (map == null && input.Length >= 6 && input.All(char.IsDigit))
+        {
+            map = new MapEntry(input, input); // workshop id not in the pool
+        }
+        if (map == null)
+        {
+            string name = Server.IsMapValid(input) || input.Contains('_') ? input : $"de_{input}";
+            if (Server.IsMapValid(name)) map = new MapEntry(name, null);
+        }
+        if (map == null)
+        {
+            Reply(player, $"{ChatColors.Red}Map '{input}' not found.");
+            return;
+        }
+
+        PrintAll($"Admin {Hl(player.PlayerName)} is changing the map to {Hl(map.Label)}.");
+        SetPhase(MatchPhase.Warmup);
+        ClearVetoHud();
+        UnfreezeVeto();
+        if (!ChangeMap(map))
+        {
+            PrintAll($"{ChatColors.Red}Could not change to {map.Name}.");
+            EnterWarmup();
+        }
     }
 
     // ---- Server console versions of the admin commands ----

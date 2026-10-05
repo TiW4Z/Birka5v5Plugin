@@ -27,6 +27,9 @@ public partial class Birka5v5Plugin
     public FakeConVar<string> DemoPath = new("birka_demo_path", "Demo folder, relative to the game's write folder (csgo/addons/metamod with Metamod)", "birka_demos/");
     public FakeConVar<bool> PauseEnabled = new("birka_pause_enabled", "Allow players to use .pause", true);
     public FakeConVar<int> ReminderInterval = new("birka_reminder_interval", "Seconds between ready/pause chat reminders", 30);
+    public FakeConVar<bool> DamageReport = new("birka_damage_report", "Show each player a damage report after every live round", true);
+    public FakeConVar<bool> DisconnectPause = new("birka_disconnect_pause", "Pause automatically when a player disconnects during a live match", true);
+    public FakeConVar<int> DisconnectPauseTime = new("birka_disconnect_pause_time", "Seconds to wait for a disconnected player before both teams must .unpause", 300);
     public FakeConVar<bool> EloEnabled = new("birka_elo_enabled", "Update player ratings after each completed match", true);
     public FakeConVar<bool> EloAutoBalance = new("birka_elo_autobalance", "Auto-create balanced teams by rating when everyone is ready", true);
     public FakeConVar<int> EloBalanceTolerance = new("birka_elo_balance_tolerance", "Rating points from the fairest split that still count as fair (adds team variety)", 25);
@@ -43,6 +46,7 @@ public partial class Birka5v5Plugin
         "birka_veto_enabled", "birka_veto_mode", "birka_veto_maps", "birka_veto_vote_time", "birka_veto_hud",
         "birka_knife_enabled", "birka_knife_decision_time", "birka_demo_enabled", "birka_demo_path",
         "birka_pause_enabled", "birka_reminder_interval",
+        "birka_damage_report", "birka_disconnect_pause", "birka_disconnect_pause_time",
         "birka_elo_enabled", "birka_elo_autobalance", "birka_elo_balance_tolerance", "birka_elo_start", "birka_elo_k",
         "birka_elo_k_provisional", "birka_elo_perf_weight", "birka_elo_min_team_size", "birka_elo_min_round_share",
     };
@@ -93,6 +97,15 @@ public partial class Birka5v5Plugin
 
         // Seconds between chat reminders
         birka_reminder_interval 30
+
+        // Show each player a damage report after every live round (1 = on, 0 = off)
+        birka_damage_report 1
+
+        // Pause automatically when a player disconnects during a live match (1 = on, 0 = off).
+        // Unpauses 10 s after everyone is back; after birka_disconnect_pause_time seconds
+        // both teams must type .unpause instead.
+        birka_disconnect_pause 1
+        birka_disconnect_pause_time 300
 
         // ---- Elo rating (stored in cfg/Birka5v5/elo.json) ----
         // Update ratings after each completed match (1 = on, 0 = off)

@@ -104,6 +104,7 @@ public partial class Birka5v5Plugin
         if (player != null && player.IsValid && !player.IsBot)
         {
             readyPlayers.Remove(player.SteamID);
+            OnLivePlayerDisconnect(player);
         }
         return HookResult.Continue;
     }
@@ -112,6 +113,13 @@ public partial class Birka5v5Plugin
     {
         // Someone moving to spectator may complete the ready check.
         if (IsReadyPhase) AddTimer(0.2f, CheckReady);
+
+        var player = @event.Userid;
+        if (!@event.Disconnect && player != null && player.IsValid && !player.IsBot
+            && (@event.Team == TeamT || @event.Team == TeamCT))
+        {
+            OnPlayerRejoinedTeam(player);
+        }
         return HookResult.Continue;
     }
 }

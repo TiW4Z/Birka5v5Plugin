@@ -10,8 +10,7 @@ public partial class Birka5v5Plugin
     {
         public readonly Dictionary<ulong, int> Damage = new();
         public readonly Dictionary<ulong, int> Kills = new();
-        public readonly Dictionary<ulong, int> Team = new();          // 0 = team A, 1 = team B
-        public readonly Dictionary<int, int> VictimHealth = new();    // slot -> health left this round
+        public readonly Dictionary<ulong, int> Team = new(); // 0 = team A, 1 = team B
     }
 
     // Keyed by round index (rounds already played at round start). A replayed round simply overwrites its entry.
@@ -81,18 +80,15 @@ public partial class Birka5v5Plugin
 
     private HookResult OnPlayerHurt(EventPlayerHurt @event, GameEventInfo info)
     {
-        if (!EloTrackingActive || !eloRounds.TryGetValue(currentEloRound, out var round)) return HookResult.Continue;
-
         var attacker = @event.Attacker;
         var victim = @event.Userid;
         if (attacker == null || victim == null || !attacker.IsValid || !victim.IsValid) return HookResult.Continue;
         if (attacker == victim || attacker.TeamNum == victim.TeamNum) return HookResult.Continue;
 
-        // Only count damage up to the victim's remaining health.
-        int remaining = round.VictimHealth.GetValueOrDefault(victim.Slot, 100);
-        int damage = Math.Clamp(@event.DmgHealth, 0, remaining);
-        round.VictimHealth[victim.Slot] = remaining - damage;
+        // Shared with the damage report; only counts damage up to the victim's remaining health.
+        int damage = RecordHit(attacker, victim, @event.DmgHealth);
 
+        if (!EloTrackingActive || !eloRounds.TryGetValue(currentEloRound, out var round)) return HookResult.Continue;
         if (!attacker.IsBot && attacker.SteamID != 0)
         {
             round.Damage[attacker.SteamID] = round.Damage.GetValueOrDefault(attacker.SteamID) + damage;

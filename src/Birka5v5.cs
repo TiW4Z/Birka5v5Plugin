@@ -110,6 +110,8 @@ public partial class Birka5v5Plugin : BasePlugin
         phaseTimers.Clear();
         pauseReminderTimer = null;
         vetoVoteTimer = null;
+        disconnectTimer = null;
+        autoUnpauseTimer = null;
     }
 
     // ---- Phase entry points ----

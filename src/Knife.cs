@@ -29,6 +29,7 @@ public partial class Birka5v5Plugin
 
     private HookResult OnRoundStart(EventRoundStart @event, GameEventInfo info)
     {
+        ResetRoundDamage();
         EloRoundStart();
         if (phase == MatchPhase.Knife) knifeRoundStarted = false;
         return HookResult.Continue;
@@ -36,6 +37,7 @@ public partial class Birka5v5Plugin
 
     private HookResult OnRoundFreezeEnd(EventRoundFreezeEnd @event, GameEventInfo info)
     {
+        roundPlayed = true;
         if (phase == MatchPhase.Knife) knifeRoundStarted = true;
         return HookResult.Continue;
     }
@@ -43,6 +45,7 @@ public partial class Birka5v5Plugin
     private HookResult OnRoundEnd(EventRoundEnd @event, GameEventInfo info)
     {
         EloRoundEnd();
+        PrintDamageReport();
         if (phase != MatchPhase.Knife || !knifeRoundStarted) return HookResult.Continue;
 
         int winner = @event.Winner;

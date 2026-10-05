@@ -43,6 +43,10 @@ Built against CounterStrikeSharp.API 1.0.368 (the last net8.0 release); it also 
 
 With `.veto` off, the first ready-up goes straight to the knife round on the current map.
 
+During a live match:
+- **Damage report:** after every round each player sees `To: [dmg / hits] From: [dmg / hits] - opponent (hp)` for every opponent (`birka_damage_report`).
+- **Auto-pause on disconnect:** if a player drops, the match pauses at the next freezetime. When everyone is back on a team it unpauses after 10 seconds. If they're not back within `birka_disconnect_pause_time` (default 5 min), both teams must type `.unpause` to continue (`birka_disconnect_pause`).
+
 ## Elo rating and balanced teams
 
 - **Ratings** are stored in `csgo/cfg/Birka5v5/elo.json` (new players start at 1000). Every completed match is logged to `elo_history.jsonl` next to it.
@@ -73,7 +77,8 @@ Every command works with `.` or `!` (e.g. `.ready` / `!ready`).
 | `.veto mode ban\|pick` | admin | change veto mode (saved) |
 | `.restore <round>` | admin | replay from the start of that round (1 = first round); pauses until both teams `.unpause` |
 | `.forcepause` `.fp` / `.forceunpause` `.fup` | admin | pause / unpause without a vote |
-| `.reset` | admin | abort and return to warmup |
+| `.reset` `.restart` `.rr` `.endmatch` `.forceend` | admin | abort and return to warmup |
+| `.map <name>` / `.map <pool number>` / `.map <workshop id>` | admin | change map (not during a match); the new map starts in warmup |
 | `.balance` | admin | balance teams by rating now (warmup) |
 | `.balance on` / `.balance off` | admin | toggle auto-balancing (saved) |
 | `.elo set <name> <rating>` | admin | seed or correct a player's rating |
