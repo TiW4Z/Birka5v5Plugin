@@ -28,6 +28,7 @@ public partial class Birka5v5Plugin
         Server.ExecuteCommand("mp_restartgame 1");
 
         StartDemo();
+        StartEloTracking();
 
         AddPhaseTimer(2.0f, () =>
         {
@@ -40,11 +41,14 @@ public partial class Birka5v5Plugin
     {
         if (phase != MatchPhase.Live) return HookResult.Continue;
 
-        SetPhase(MatchPhase.PostMatch);
-        ResetPauseState();
-
         var (ct, t) = GetTeamScores();
         PrintAll($"Match over: {TeamName(TeamCT)} {Hl(ct.ToString())} - {Hl(t.ToString())} {TeamName(TeamT)}");
+
+        // Needs the Live phase, so before switching to PostMatch.
+        ProcessEloMatchEnd();
+
+        SetPhase(MatchPhase.PostMatch);
+        ResetPauseState();
 
         // Give GOTV time to flush the broadcast delay before stopping the demo (same timing as Get5/MatchZy).
         int tvDelay = GetTvDelay();

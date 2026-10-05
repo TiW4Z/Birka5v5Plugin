@@ -57,6 +57,7 @@ public partial class Birka5v5Plugin
         }
 
         Server.ExecuteCommand($"mp_backup_restore_load_file {fileName}");
+        EloDropRoundsFrom(round - 1);
 
         // Restoring always pauses; both teams have to .unpause (or an admin .forceunpause).
         Server.ExecuteCommand("mp_pause_match");

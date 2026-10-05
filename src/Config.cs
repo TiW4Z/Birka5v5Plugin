@@ -27,6 +27,15 @@ public partial class Birka5v5Plugin
     public FakeConVar<string> DemoPath = new("birka_demo_path", "Demo folder, relative to the game's write folder (csgo/addons/metamod with Metamod)", "birka_demos/");
     public FakeConVar<bool> PauseEnabled = new("birka_pause_enabled", "Allow players to use .pause", true);
     public FakeConVar<int> ReminderInterval = new("birka_reminder_interval", "Seconds between ready/pause chat reminders", 30);
+    public FakeConVar<bool> EloEnabled = new("birka_elo_enabled", "Update player ratings after each completed match", true);
+    public FakeConVar<bool> EloAutoBalance = new("birka_elo_autobalance", "Auto-create balanced teams by rating when everyone is ready", true);
+    public FakeConVar<int> EloBalanceTolerance = new("birka_elo_balance_tolerance", "Rating points from the fairest split that still count as fair (adds team variety)", 25);
+    public FakeConVar<int> EloStart = new("birka_elo_start", "Starting rating for new players", 1000);
+    public FakeConVar<int> EloK = new("birka_elo_k", "Rating step (K factor)", 32);
+    public FakeConVar<int> EloKProvisional = new("birka_elo_k_provisional", "K factor for a player's first 10 rated matches", 48);
+    public FakeConVar<float> EloPerfWeight = new("birka_elo_perf_weight", "How much ADR/kills shift points within a team (0 = pure team Elo, max 1)", 0.5f);
+    public FakeConVar<int> EloMinTeamSize = new("birka_elo_min_team_size", "Minimum rated players per team for a match to count", 4);
+    public FakeConVar<float> EloMinRoundShare = new("birka_elo_min_round_share", "Share of rounds a player must play to be rated", 0.5f);
 
     private static readonly string[] ConVarNames =
     {
@@ -34,6 +43,8 @@ public partial class Birka5v5Plugin
         "birka_veto_enabled", "birka_veto_mode", "birka_veto_maps", "birka_veto_vote_time", "birka_veto_hud",
         "birka_knife_enabled", "birka_knife_decision_time", "birka_demo_enabled", "birka_demo_path",
         "birka_pause_enabled", "birka_reminder_interval",
+        "birka_elo_enabled", "birka_elo_autobalance", "birka_elo_balance_tolerance", "birka_elo_start", "birka_elo_k",
+        "birka_elo_k_provisional", "birka_elo_perf_weight", "birka_elo_min_team_size", "birka_elo_min_round_share",
     };
 
     private static string CfgDirectory => Path.Combine(Server.GameDirectory, "csgo", "cfg", CfgFolder);
@@ -82,6 +93,26 @@ public partial class Birka5v5Plugin
 
         // Seconds between chat reminders
         birka_reminder_interval 30
+
+        // ---- Elo rating (stored in cfg/Birka5v5/elo.json) ----
+        // Update ratings after each completed match (1 = on, 0 = off)
+        birka_elo_enabled 1
+        // Auto-create balanced teams by rating when everyone is ready (1 = on, 0 = off). In-game: .balance on/off
+        birka_elo_autobalance 1
+        // Splits within this many rating points of the fairest one count as fair; one is picked at random
+        // so teammates vary between matches (0 = always the fairest split)
+        birka_elo_balance_tolerance 25
+        // Starting rating for new players (admins can seed with .elo set <name> <rating>)
+        birka_elo_start 1000
+        // Rating step per match, and the bigger step for a player's first 10 matches
+        birka_elo_k 32
+        birka_elo_k_provisional 48
+        // How much ADR/kills decide each player's share of the team's gain/loss (0 = everyone equal, max 1)
+        birka_elo_perf_weight 0.5
+        // A match is only rated if each team has this many players who played at least
+        // birka_elo_min_round_share of the rounds
+        birka_elo_min_team_size 4
+        birka_elo_min_round_share 0.5
         """;
 
     private void EnsureConfigFiles()

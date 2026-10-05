@@ -37,6 +37,7 @@ public partial class Birka5v5Plugin : BasePlugin
     {
         EnsureConfigFiles();
         Server.ExecuteCommand($"exec {CfgFolder}/config.cfg");
+        LoadElo();
 
         RegisterCommands();
 
@@ -49,6 +50,9 @@ public partial class Birka5v5Plugin : BasePlugin
         RegisterEventHandler<EventRoundFreezeEnd>(OnRoundFreezeEnd);
         RegisterEventHandler<EventRoundEnd>(OnRoundEnd);
         RegisterEventHandler<EventCsWinPanelMatch>(OnMatchEnd);
+        RegisterEventHandler<EventPlayerHurt>(OnPlayerHurt);
+        RegisterEventHandler<EventPlayerDeath>(OnPlayerDeath);
+        RegisterEventHandler<EventPlayerConnectFull>(OnPlayerConnectFull);
 
         // On a fresh server start OnMapStart handles this; on a hot reload the map is already running.
         if (hotReload)
@@ -122,6 +126,8 @@ public partial class Birka5v5Plugin : BasePlugin
         ResetPauseState();
         ResetVetoState();
         ClearVetoHud();
+        StopEloTracking();
+        balancedTeams.Clear();
 
         ExecPhaseCfg("warmup.cfg");
         StartReadyReminder();
@@ -141,6 +147,7 @@ public partial class Birka5v5Plugin : BasePlugin
 
         ExecPhaseCfg("warmup.cfg");
         StartReadyReminder();
+        AddPhaseTimer(1.0f, ApplyBalancedTeams);
 
         string next = KnifeEnabled.Value ? "the knife round" : "the match";
         PrintAll($"Map {Hl(Server.MapName)} loaded. Type {Hl(".ready")} to start {next}.");
@@ -149,6 +156,11 @@ public partial class Birka5v5Plugin : BasePlugin
     /// <summary>Called when everyone is ready (or .forcestart) in one of the ready phases.</summary>
     private void OnAllReady()
     {
+        if (phase == MatchPhase.Warmup && EloAutoBalance.Value)
+        {
+            BalanceTeams();
+        }
+
         if (phase == MatchPhase.Warmup && VetoEnabled.Value)
         {
             StartVeto();

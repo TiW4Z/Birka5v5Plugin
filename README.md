@@ -43,18 +43,28 @@ Built against CounterStrikeSharp.API 1.0.368 (the last net8.0 release); it also 
 
 With `.veto` off, the first ready-up goes straight to the knife round on the current map.
 
+## Elo rating and balanced teams
+
+- **Ratings** are stored in `csgo/cfg/Birka5v5/elo.json` (new players start at 1000). Every completed match is logged to `elo_history.jsonl` next to it.
+- **After each match** the winning team gains and the losing team loses points (team Elo: beating a stronger team gives more, bigger round margins count a bit more). Within a team, ADR and kills decide each player's share, so a strong player on a losing team loses less. A team's total change isn't affected by performance, so ratings don't inflate.
+- **First 10 matches** use a bigger step (shown as "provisional"). Admins can seed known skill levels with `.elo set <name> <rating>`.
+- **Balancing** (`birka_elo_autobalance 1`): when everyone is ready in warmup, players are split into the two most even teams before the veto. Among splits that are nearly as fair, one is picked at random (and last match's exact teams are avoided) so teammates vary. On the match map, players are kept on their balanced team.
+- A match only counts if it ends normally (not `.reset`) and each team has at least `birka_elo_min_team_size` players who played most of the rounds.
+
 ## Commands
 
 Every command works with `.` or `!` (e.g. `.ready` / `!ready`).
 
 | Command | Who | |
 |---|---|---|
-| `.r` `.ready` / `.ur` `.unready` | everyone | ready / unready |
+| `.r` `.ready` / `.ur` `.unready` `.notready` | everyone | ready / unready |
 | `<number>` `.ban <n\|map>` `.pick <n\|map>` | acting team | veto vote |
 | `.veto list` | everyone | show pool and mode |
-| `.stay` / `.switch` | knife winners | choose sides |
+| `.stay` / `.switch` `.swap` | knife winners | choose sides |
 | `.pause` `.p` | T/CT | pause now in freezetime, otherwise at the next freezetime |
 | `.unpause` `.up` | T/CT | both teams must type it to resume |
+| `.elo` `.rank` / `.elo <name>` | everyone | rating, W-L-D and rank |
+| `.top` | everyone | top 10 ratings |
 | `.help` | everyone | list commands |
 | `.forcestart` | admin | skip the ready check |
 | `.veto` / `.veto on` / `.veto off` | admin | toggle the veto (saved to config.cfg) |
@@ -62,8 +72,11 @@ Every command works with `.` or `!` (e.g. `.ready` / `!ready`).
 | `.veto remove <map>` | admin | remove from pool (saved) |
 | `.veto mode ban\|pick` | admin | change veto mode (saved) |
 | `.restore <round>` | admin | replay from the start of that round (1 = first round); pauses until both teams `.unpause` |
-| `.forcepause` / `.forceunpause` | admin | pause / unpause without a vote |
+| `.forcepause` `.fp` / `.forceunpause` `.fup` | admin | pause / unpause without a vote |
 | `.reset` | admin | abort and return to warmup |
+| `.balance` | admin | balance teams by rating now (warmup) |
+| `.balance on` / `.balance off` | admin | toggle auto-balancing (saved) |
+| `.elo set <name> <rating>` | admin | seed or correct a player's rating |
 
 Server console: `birka_forcestart`, `birka_restore <round>`, `birka_reset`, `birka_status`.
 

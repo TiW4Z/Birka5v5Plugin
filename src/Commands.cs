@@ -37,6 +37,10 @@ public partial class Birka5v5Plugin
             ["fup"] = (p, _) => CmdForceUnpause(p),
             ["restore"] = (p, args) => CmdRestore(p, args),
             ["reset"] = (p, _) => CmdReset(p),
+            ["elo"] = CmdElo,
+            ["rank"] = CmdElo,
+            ["top"] = (p, _) => CmdTop(p),
+            ["balance"] = CmdBalance,
             ["help"] = (p, _) => CmdHelp(p),
         };
 
@@ -88,15 +92,15 @@ public partial class Birka5v5Plugin
             Reply(player, "Teams are locked right now.");
             return HookResult.Handled;
         }
-        return HookResult.Continue;
+        return BlocksBalancedJoin(player, info) ? HookResult.Handled : HookResult.Continue;
     }
 
     private void CmdHelp(CCSPlayerController player)
     {
-        Reply(player, $"{Hl(".ready")}/{Hl(".unready")}, {Hl(".pause")}/{Hl(".unpause")}, {Hl(".veto list")}, vote with a number during the veto, {Hl(".stay")}/{Hl(".switch")} after knife.");
+        Reply(player, $"{Hl(".ready")}/{Hl(".unready")}, {Hl(".pause")}/{Hl(".unpause")}, {Hl(".veto list")}, vote with a number during the veto, {Hl(".stay")}/{Hl(".switch")} after knife, {Hl(".elo [name]")}, {Hl(".top")}.");
         if (IsAdmin(player))
         {
-            Reply(player, $"Admin: {Hl(".forcestart")}, {Hl(".veto")} (toggle), {Hl(".veto add/remove <map>")}, {Hl(".veto mode ban|pick")}, {Hl(".restore <round>")}, {Hl(".forcepause")}, {Hl(".forceunpause")}, {Hl(".reset")}");
+            Reply(player, $"Admin: {Hl(".forcestart")}, {Hl(".veto")} (toggle), {Hl(".veto add/remove <map>")}, {Hl(".veto mode ban|pick")}, {Hl(".restore <round>")}, {Hl(".forcepause")}, {Hl(".forceunpause")}, {Hl(".reset")}, {Hl(".balance [on|off]")}, {Hl(".elo set <name> <rating>")}");
         }
     }
 
@@ -123,6 +127,7 @@ public partial class Birka5v5Plugin
     public void ConsoleStatus(CCSPlayerController? player, CommandInfo info)
     {
         info.ReplyToCommand($"[Birka5v5] phase={phase} ready={ReadyCount()}/{PlayersRequired.Value} veto={(VetoEnabled.Value ? Clean(VetoMode.Value) : "off")} pool={Clean(VetoMaps.Value)} paused={isPaused} demo={demoRecording}");
+        info.ReplyToCommand($"[Birka5v5] elo enabled={EloEnabled.Value} autobalance={EloAutoBalance.Value} players={eloData.Players.Count} rated_rounds={eloRounds.Count} tracking={eloTracking} load_failed={eloLoadFailed}");
         info.ReplyToCommand($"[Birka5v5] tv_enable={GetConVarNumber("tv_enable")} tv_autorecord={GetConVarNumber("tv_autorecord")} gotv_connected={IsGotvConnected()} demo_folder={Path.Combine(EngineWriteDirectory(), GetDemoFolder())}");
         if (matchId.Length > 0)
         {
