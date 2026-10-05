@@ -24,6 +24,9 @@ public partial class Birka5v5Plugin
     private Timer? vetoVoteTimer;
     private MapEntry? selectedMap;
 
+    // True while the veto holds players frozen with mp_pause_match.
+    private bool vetoFrozen;
+
     // Shown on the HUD when no vote is open (countdown, last result, final map).
     private string vetoHeadline = "";
 
@@ -65,6 +68,12 @@ public partial class Birka5v5Plugin
         SetPhase(MatchPhase.Veto);
         ResetVetoState();
         readyPlayers.Clear();
+
+        // Send everyone back to spawn and hold them there: ending warmup starts a fresh round,
+        // and the pause holds its freezetime until the veto is done.
+        Server.ExecuteCommand("mp_warmup_end");
+        Server.ExecuteCommand("mp_pause_match");
+        vetoFrozen = true;
 
         vetoPool = pool;
         vetoPickMode = pickMode;
@@ -289,9 +298,17 @@ public partial class Birka5v5Plugin
         AddPhaseTimer(6.0f, () => ChangeToSelectedMap(map));
     }
 
+    private void UnfreezeVeto()
+    {
+        if (!vetoFrozen) return;
+        vetoFrozen = false;
+        Server.ExecuteCommand("mp_unpause_match");
+    }
+
     private void ChangeToSelectedMap(MapEntry map)
     {
         ClearVetoHud();
+        UnfreezeVeto();
 
         if (!map.IsWorkshop && Server.MapName.Equals(map.Name, StringComparison.OrdinalIgnoreCase))
         {

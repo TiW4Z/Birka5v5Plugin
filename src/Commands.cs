@@ -122,5 +122,11 @@ public partial class Birka5v5Plugin
     public void ConsoleStatus(CCSPlayerController? player, CommandInfo info)
     {
         info.ReplyToCommand($"[Birka5v5] phase={phase} ready={ReadyCount()}/{PlayersRequired.Value} veto={(VetoEnabled.Value ? Clean(VetoMode.Value) : "off")} pool={Clean(VetoMaps.Value)} paused={isPaused} demo={demoRecording}");
+        if (matchId.Length > 0)
+        {
+            var backups = FindBackupFiles();
+            info.ReplyToCommand($"[Birka5v5] backups prefix={BackupPrefix} found={backups.Count} cwd={Directory.GetCurrentDirectory()}");
+            foreach (var path in backups.OrderBy(b => b.Key).Select(b => b.Value).Take(3)) info.ReplyToCommand($"  {path}");
+        }
     }
 }

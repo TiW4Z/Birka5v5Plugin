@@ -20,6 +20,7 @@ public partial class Birka5v5Plugin
 
         ExecPhaseCfg("live.cfg");
         Server.ExecuteCommand($"mp_backup_round_file {BackupPrefix}");
+        Server.ExecuteCommand("mp_backup_round_file_pattern \"%prefix%_round%round%.txt\"");
         Server.ExecuteCommand("mp_backup_round_auto 1");
         // Restart on the same map when the match ends, instead of going to the next map in the mapcycle.
         Server.ExecuteCommand("mp_match_end_restart 1");

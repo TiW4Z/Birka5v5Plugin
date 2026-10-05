@@ -115,6 +115,7 @@ public partial class Birka5v5Plugin : BasePlugin
     {
         if (demoRecording) StopDemo(0);
         if (isPaused) Server.ExecuteCommand("mp_unpause_match");
+        UnfreezeVeto();
 
         SetPhase(MatchPhase.Warmup);
         readyPlayers.Clear();
@@ -136,6 +137,7 @@ public partial class Birka5v5Plugin : BasePlugin
         readyPlayers.Clear();
         ResetPauseState();
         ClearVetoHud();
+        UnfreezeVeto();
 
         ExecPhaseCfg("warmup.cfg");
         StartReadyReminder();
