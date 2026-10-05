@@ -141,6 +141,39 @@ public partial class Birka5v5Plugin
         };
     }
 
+    // ---- Engine file locations ----
+
+    private string? engineWriteDirectory;
+
+    /// <summary>
+    /// Folder the engine writes relative files to (round backups, demos): the first "Game" search path in
+    /// csgo/gameinfo.gi. With Metamod installed this is csgo/addons/metamod, not csgo.
+    /// </summary>
+    private string EngineWriteDirectory()
+    {
+        if (engineWriteDirectory != null) return engineWriteDirectory;
+
+        string fallback = Path.Combine(Server.GameDirectory, "csgo");
+        try
+        {
+            string text = File.ReadAllText(Path.Combine(fallback, "gameinfo.gi"));
+            int searchPaths = text.IndexOf("SearchPaths", StringComparison.OrdinalIgnoreCase);
+            var match = System.Text.RegularExpressions.Regex.Match(
+                searchPaths >= 0 ? text[searchPaths..] : text,
+                @"^\s*Game\s+([^\s/]+(?:/[^\s/]+)*)",
+                System.Text.RegularExpressions.RegexOptions.Multiline);
+            if (match.Success)
+            {
+                string dir = Path.Combine(Server.GameDirectory, match.Groups[1].Value);
+                if (Directory.Exists(dir)) return engineWriteDirectory = dir;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+        }
+        return engineWriteDirectory = fallback;
+    }
+
     // ---- Map pool ----
 
     private List<MapEntry> GetMapPool()

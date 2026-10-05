@@ -11,8 +11,8 @@ public partial class Birka5v5Plugin
 {
     // Valve writes <prefix>_roundNN.txt at the start of each round (mp_backup_round_auto 1),
     // where NN is the number of rounds already played. So round X (1-based) is file round{X-1}.
-    // The folder it writes to depends on the server's working directory, so several places are searched,
-    // and the file is copied into csgo/ (where mp_backup_restore_load_file reads from) before loading.
+    // The engine writes them to its first "Game" search path (csgo/addons/metamod with Metamod installed),
+    // which is searched first, with other likely folders and game/ as fallbacks.
     private void CmdRestore(CCSPlayerController? player, string[] args)
     {
         if (!RequireAdmin(player)) return;
@@ -41,15 +41,17 @@ public partial class Birka5v5Plugin
             return;
         }
 
+        // mp_backup_restore_load_file looks the name up through the engine's search paths,
+        // so make sure the file is in the folder the engine reads/writes first.
         string fileName = Path.GetFileName(sourcePath);
-        string csgoPath = Path.Combine(Server.GameDirectory, "csgo", fileName);
+        string loadPath = Path.Combine(EngineWriteDirectory(), fileName);
         try
         {
-            if (!SamePath(sourcePath, csgoPath)) File.Copy(sourcePath, csgoPath, overwrite: true);
+            if (!SamePath(sourcePath, loadPath)) File.Copy(sourcePath, loadPath, overwrite: true);
         }
         catch (Exception ex)
         {
-            Logger.LogError(ex, "Could not copy backup {Source} to {Target}", sourcePath, csgoPath);
+            Logger.LogError(ex, "Could not copy backup {Source} to {Target}", sourcePath, loadPath);
             Reply(player, $"{ChatColors.Red}Could not prepare the backup file, see server console.");
             return;
         }
@@ -71,6 +73,7 @@ public partial class Birka5v5Plugin
     {
         var dirs = new List<string>
         {
+            EngineWriteDirectory(),
             Path.Combine(Server.GameDirectory, "csgo"),
             Directory.GetCurrentDirectory(),
             Server.GameDirectory,

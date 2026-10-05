@@ -1,4 +1,6 @@
 using CounterStrikeSharp.API;
+using CounterStrikeSharp.API.Core;
+using CounterStrikeSharp.API.Modules.Timers;
 using Microsoft.Extensions.Logging;
 
 namespace Birka5v5;
@@ -6,6 +8,11 @@ namespace Birka5v5;
 public partial class Birka5v5Plugin
 {
     private bool demoRecording;
+
+    // Where the engine writes the demo (its first search path, csgo/addons/metamod with Metamod)
+    // and where it is moved once finished (csgo/<birka_demo_path>).
+    private string activeDemoEnginePath = "";
+    private string activeDemoFinalPath = "";
 
     private void StartDemo()
     {
@@ -18,17 +25,6 @@ public partial class Birka5v5Plugin
             return;
         }
 
-        string folder = GetDemoFolder();
-        try
-        {
-            Directory.CreateDirectory(Path.Combine(Server.GameDirectory, "csgo", folder));
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Could not create demo folder {Folder}, recording to csgo/", folder);
-            folder = "";
-        }
-
         // GOTV only joins if tv_enable was on when the map loaded; tv_record fails without it.
         bool gotvConnected = IsGotvConnected();
         if (!gotvConnected)
@@ -37,39 +33,54 @@ public partial class Birka5v5Plugin
         }
         if (GetConVarNumber("tv_autorecord") >= 1)
         {
-            Logger.LogWarning("tv_autorecord is 1: GOTV records its own demos (auto*.dem in csgo/) and tv_record may be refused");
+            Logger.LogWarning("tv_autorecord is 1: GOTV records its own demos and tv_record may be refused");
         }
 
+        string folder = GetDemoFolder();
         string map = string.Concat(Server.MapName.Split(Path.GetInvalidFileNameChars().Append('/').ToArray()));
         string file = $"{folder}{DateTime.Now:yyyy-MM-dd_HH-mm-ss}_{map}.dem";
-        string fullPath = Path.Combine(Server.GameDirectory, "csgo", file);
 
-        Logger.LogInformation("Starting demo: tv_record \"{File}\" (expected at {Path})", file, fullPath);
+        activeDemoEnginePath = Path.Combine(EngineWriteDirectory(), file);
+        activeDemoFinalPath = Path.Combine(Server.GameDirectory, "csgo", file);
+
+        // The engine does not create missing folders for tv_record.
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(activeDemoEnginePath)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(activeDemoFinalPath)!);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not create demo folder {Folder}", folder);
+        }
+
+        Logger.LogInformation("Starting demo: tv_record \"{File}\" (engine writes to {Path})", file, activeDemoEnginePath);
         Server.ExecuteCommand($"tv_record \"{file}\"");
         demoRecording = true;
 
-        AddTimer(5.0f, () => VerifyDemoStarted(fullPath, gotvConnected), CounterStrikeSharp.API.Modules.Timers.TimerFlags.STOP_ON_MAPCHANGE);
+        string enginePath = activeDemoEnginePath;
+        AddTimer(5.0f, () => VerifyDemoStarted(enginePath, gotvConnected), TimerFlags.STOP_ON_MAPCHANGE);
     }
 
-    private void VerifyDemoStarted(string fullPath, bool gotvConnected)
+    private void VerifyDemoStarted(string enginePath, bool gotvConnected)
     {
         if (!demoRecording) return;
 
-        if (File.Exists(fullPath))
+        if (File.Exists(enginePath))
         {
-            Logger.LogInformation("Demo is recording: {Path}", fullPath);
+            Logger.LogInformation("Demo is recording: {Path}", enginePath);
             return;
         }
 
         string reason = gotvConnected
             ? "check the server console for the tv_record error"
             : "the GOTV bot is not on the server (tv_enable must be 1 before the map loads)";
-        Logger.LogError("Demo file was not created at {Path}: {Reason}", fullPath, reason);
+        Logger.LogError("Demo file was not created at {Path}: {Reason}", enginePath, reason);
         PrintAll($"Demo recording did not start: {reason}.");
     }
 
     private static bool IsGotvConnected() =>
-        Utilities.FindAllEntitiesByDesignerName<CounterStrikeSharp.API.Core.CCSPlayerController>("cs_player_controller")
+        Utilities.FindAllEntitiesByDesignerName<CCSPlayerController>("cs_player_controller")
             .Any(p => p.IsValid && p.IsHLTV);
 
     private void StopDemo(float delay)
@@ -77,12 +88,48 @@ public partial class Birka5v5Plugin
         if (!demoRecording) return;
         demoRecording = false;
 
-        if (delay <= 0)
+        string enginePath = activeDemoEnginePath;
+        string finalPath = activeDemoFinalPath;
+        void Stop()
         {
             Server.ExecuteCommand("tv_stoprecord");
-            return;
+            AddTimer(5.0f, () => MoveFinishedDemo(enginePath, finalPath));
         }
-        AddTimer(delay, () => Server.ExecuteCommand("tv_stoprecord"));
+
+        if (delay <= 0) Stop();
+        else AddTimer(delay, Stop);
+    }
+
+    /// <summary>A map change ends the recording without tv_stoprecord.</summary>
+    private void OnDemoEndedByMapChange()
+    {
+        if (!demoRecording) return;
+        demoRecording = false;
+
+        string enginePath = activeDemoEnginePath;
+        string finalPath = activeDemoFinalPath;
+        AddTimer(5.0f, () => MoveFinishedDemo(enginePath, finalPath));
+    }
+
+    /// <summary>Moves a finished demo from the engine's write folder to csgo/&lt;birka_demo_path&gt;.</summary>
+    private void MoveFinishedDemo(string enginePath, string finalPath)
+    {
+        if (enginePath.Length == 0 || SamePath(enginePath, finalPath)) return;
+        try
+        {
+            if (!File.Exists(enginePath))
+            {
+                Logger.LogWarning("Finished demo not found at {Path}", enginePath);
+                return;
+            }
+            Directory.CreateDirectory(Path.GetDirectoryName(finalPath)!);
+            File.Move(enginePath, finalPath, overwrite: false);
+            Logger.LogInformation("Demo saved to {Path}", finalPath);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not move demo {Source} to {Target}; it is still at the source", enginePath, finalPath);
+        }
     }
 
     /// <summary>birka_demo_path, normalised to a safe relative folder ending in '/'.</summary>
