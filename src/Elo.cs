@@ -263,18 +263,21 @@ public partial class Birka5v5Plugin
         }
 
         string key = target.SteamID.ToString();
-        if (!eloData.Players.TryGetValue(key, out var stored) || stored.Matches == 0)
+        if (!eloData.Players.TryGetValue(key, out var stored))
         {
-            int rating = stored?.Rating ?? StartRating;
-            Reply(player, $"{Hl(target.PlayerName)}: {FormatRating(rating, 0)}, no rated matches yet.");
+            Reply(player, $"{Hl(target.PlayerName)}: {FormatRating(StartRating, 0)}, no rated matches yet.");
             return;
         }
 
-        var ranked = eloData.Players.Where(p => p.Value.Matches > 0).OrderByDescending(p => p.Value.Rating).ToList();
+        // Seeded players (0 matches) are ranked too.
+        var ranked = eloData.Players.OrderByDescending(p => p.Value.Rating).ToList();
         int rank = ranked.FindIndex(p => p.Key == key) + 1;
         Reply(player, $"{Hl(target.PlayerName)}: {Hl(FormatRating(stored.Rating, stored.Matches))}, " +
-                      $"{stored.Wins}W {stored.Losses}L {stored.Draws}D in {stored.Matches} matches, rank #{rank}/{ranked.Count}.");
+                      $"{MatchRecord(stored)}, rank #{rank}/{ranked.Count}.");
     }
+
+    private static string MatchRecord(EloPlayer p) =>
+        p.Matches > 0 ? $"{p.Wins}W {p.Losses}L {p.Draws}D in {p.Matches} matches" : "no matches yet";
 
     private void CmdEloSet(CCSPlayerController player, string[] args)
     {
@@ -307,17 +310,19 @@ public partial class Birka5v5Plugin
 
     private void CmdTop(CCSPlayerController player)
     {
-        var top = eloData.Players.Values.Where(p => p.Matches > 0).OrderByDescending(p => p.Rating).Take(10).ToList();
+        // Includes seeded players who haven't played a rated match yet.
+        var top = eloData.Players.Values.OrderByDescending(p => p.Rating).Take(10).ToList();
         if (top.Count == 0)
         {
-            Reply(player, "No rated matches yet.");
+            Reply(player, "No players yet.");
             return;
         }
         Reply(player, "Top players:");
         for (int i = 0; i < top.Count; i++)
         {
             var p = top[i];
-            Reply(player, $"{Hl($"{i + 1}.")} {p.Name} {FormatRating(p.Rating, p.Matches)} ({p.Wins}W {p.Losses}L {p.Draws}D)");
+            string record = p.Matches > 0 ? $"{p.Wins}W {p.Losses}L {p.Draws}D" : "no matches yet";
+            Reply(player, $"{Hl($"{i + 1}.")} {p.Name} {FormatRating(p.Rating, p.Matches)} ({record})");
         }
     }
 

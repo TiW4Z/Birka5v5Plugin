@@ -64,7 +64,7 @@ Every command works with `.` or `!` (e.g. `.ready` / `!ready`).
 | `.pause` `.p` | T/CT | pause now in freezetime, otherwise at the next freezetime |
 | `.unpause` `.up` | T/CT | both teams must type it to resume |
 | `.elo` `.rank` / `.elo <name>` | everyone | rating, W-L-D and rank |
-| `.top` | everyone | top 10 ratings |
+| `.top` | everyone | top 10 ratings (including seeded players) |
 | `.help` | everyone | list commands |
 | `.forcestart` | admin | skip the ready check |
 | `.veto` / `.veto on` / `.veto off` | admin | toggle the veto (saved to config.cfg) |
