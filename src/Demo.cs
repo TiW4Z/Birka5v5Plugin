@@ -40,19 +40,10 @@ public partial class Birka5v5Plugin
         string map = string.Concat(Server.MapName.Split(Path.GetInvalidFileNameChars().Append('/').ToArray()));
         string file = $"{folder}{DateTime.Now:yyyy-MM-dd_HH-mm-ss}_{map}.dem";
 
-        activeDemoEnginePath = Path.Combine(EngineWriteDirectory(), file);
         activeDemoFinalPath = Path.Combine(Server.GameDirectory, "csgo", file);
-
-        // The engine does not create missing folders for tv_record.
-        try
-        {
-            Directory.CreateDirectory(Path.GetDirectoryName(activeDemoEnginePath)!);
-            Directory.CreateDirectory(Path.GetDirectoryName(activeDemoFinalPath)!);
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Could not create demo folder {Folder}", folder);
-        }
+        activeDemoEnginePath = PrepareDemoFolders(folder)
+            ? activeDemoFinalPath
+            : Path.Combine(EngineWriteDirectory(), file);
 
         Logger.LogInformation("Starting demo: tv_record \"{File}\" (engine writes to {Path})", file, activeDemoEnginePath);
         Server.ExecuteCommand($"tv_record \"{file}\"");
@@ -98,6 +89,80 @@ public partial class Birka5v5Plugin
 
         if (delay <= 0) Stop();
         else AddTimer(delay, Stop);
+    }
+
+    /// <summary>
+    /// Creates the demo folders. The engine does not create folders for tv_record, and it writes into its
+    /// first search path (csgo/addons/metamod), so that folder is made a symlink to csgo/&lt;birka_demo_path&gt;.
+    /// Returns true if the engine's writes land directly in the final folder.
+    /// </summary>
+    private bool PrepareDemoFolders(string folder)
+    {
+        string finalDir = Path.Combine(Server.GameDirectory, "csgo", folder).TrimEnd('/', '\\');
+        string engineDir = Path.Combine(EngineWriteDirectory(), folder).TrimEnd('/', '\\');
+
+        try
+        {
+            Directory.CreateDirectory(finalDir);
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not create demo folder {Folder}", finalDir);
+        }
+
+        if (SamePath(engineDir, finalDir)) return true;
+        if (folder.Length == 0) return false; // can't link the engine's root folder; move afterwards
+
+        try
+        {
+            var existing = new DirectoryInfo(engineDir);
+            if (existing.Exists && existing.LinkTarget != null)
+            {
+                string? linkTarget = existing.ResolveLinkTarget(true)?.FullName;
+                if (linkTarget != null && SamePath(linkTarget, finalDir)) return true;
+                existing.Delete(); // link to an old location
+            }
+            else if (existing.Exists)
+            {
+                // A real folder from older versions: move its demos over, then replace it with the link.
+                foreach (var demo in existing.EnumerateFiles())
+                {
+                    string target = Path.Combine(finalDir, demo.Name);
+                    if (!File.Exists(target)) demo.MoveTo(target);
+                }
+                if (existing.EnumerateFileSystemInfos().Any())
+                {
+                    Logger.LogWarning("{Folder} is not empty, recording there and moving demos afterwards", engineDir);
+                    return false;
+                }
+                existing.Delete();
+            }
+
+            Directory.CreateDirectory(Path.GetDirectoryName(engineDir)!);
+            Directory.CreateSymbolicLink(engineDir, finalDir);
+            Logger.LogInformation("Linked {Link} -> {Target} so demos are written there directly", engineDir, finalDir);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogWarning(ex, "Could not link {Link} to {Target}, demos will be moved after recording", engineDir, finalDir);
+            CreateFolder(engineDir);
+            return false;
+        }
+    }
+
+    private bool CreateFolder(string dir)
+    {
+        try
+        {
+            Directory.CreateDirectory(dir);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not create demo folder {Folder}", dir);
+            return false;
+        }
     }
 
     /// <summary>A map change ends the recording without tv_stoprecord.</summary>
