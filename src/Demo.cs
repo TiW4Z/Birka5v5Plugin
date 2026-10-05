@@ -29,13 +29,48 @@ public partial class Birka5v5Plugin
             folder = "";
         }
 
+        // GOTV only joins if tv_enable was on when the map loaded; tv_record fails without it.
+        bool gotvConnected = IsGotvConnected();
+        if (!gotvConnected)
+        {
+            Logger.LogWarning("GOTV bot is not on the server. tv_enable must be 1 before the map loads (server.cfg or launch options, then change map)");
+        }
+        if (GetConVarNumber("tv_autorecord") >= 1)
+        {
+            Logger.LogWarning("tv_autorecord is 1: GOTV records its own demos (auto*.dem in csgo/) and tv_record may be refused");
+        }
+
         string map = string.Concat(Server.MapName.Split(Path.GetInvalidFileNameChars().Append('/').ToArray()));
         string file = $"{folder}{DateTime.Now:yyyy-MM-dd_HH-mm-ss}_{map}.dem";
+        string fullPath = Path.Combine(Server.GameDirectory, "csgo", file);
 
+        Logger.LogInformation("Starting demo: tv_record \"{File}\" (expected at {Path})", file, fullPath);
         Server.ExecuteCommand($"tv_record \"{file}\"");
         demoRecording = true;
-        Logger.LogInformation("Recording demo to csgo/{File}", file);
+
+        AddTimer(5.0f, () => VerifyDemoStarted(fullPath, gotvConnected), CounterStrikeSharp.API.Modules.Timers.TimerFlags.STOP_ON_MAPCHANGE);
     }
+
+    private void VerifyDemoStarted(string fullPath, bool gotvConnected)
+    {
+        if (!demoRecording) return;
+
+        if (File.Exists(fullPath))
+        {
+            Logger.LogInformation("Demo is recording: {Path}", fullPath);
+            return;
+        }
+
+        string reason = gotvConnected
+            ? "check the server console for the tv_record error"
+            : "the GOTV bot is not on the server (tv_enable must be 1 before the map loads)";
+        Logger.LogError("Demo file was not created at {Path}: {Reason}", fullPath, reason);
+        PrintAll($"Demo recording did not start: {reason}.");
+    }
+
+    private static bool IsGotvConnected() =>
+        Utilities.FindAllEntitiesByDesignerName<CounterStrikeSharp.API.Core.CCSPlayerController>("cs_player_controller")
+            .Any(p => p.IsValid && p.IsHLTV);
 
     private void StopDemo(float delay)
     {

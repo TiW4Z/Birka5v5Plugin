@@ -122,6 +122,7 @@ public partial class Birka5v5Plugin
     public void ConsoleStatus(CCSPlayerController? player, CommandInfo info)
     {
         info.ReplyToCommand($"[Birka5v5] phase={phase} ready={ReadyCount()}/{PlayersRequired.Value} veto={(VetoEnabled.Value ? Clean(VetoMode.Value) : "off")} pool={Clean(VetoMaps.Value)} paused={isPaused} demo={demoRecording}");
+        info.ReplyToCommand($"[Birka5v5] tv_enable={GetConVarNumber("tv_enable")} tv_autorecord={GetConVarNumber("tv_autorecord")} gotv_connected={IsGotvConnected()} demo_folder={Path.Combine(Server.GameDirectory, "csgo", GetDemoFolder())}");
         if (matchId.Length > 0)
         {
             var backups = FindBackupFiles();
