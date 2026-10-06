@@ -68,15 +68,23 @@ public partial class Birka5v5Plugin : BasePlugin
         ClearVetoHud();
     }
 
+    // The map the veto chose, and the name the engine reported when it loaded (workshop maps differ).
+    private MapEntry? matchMap;
+    private string? matchMapLoadedName;
+
     private void OnMapStart(string mapName)
     {
         // Any recording ends when the map changes.
         demoRecording = false;
+        Logger.LogInformation("Map start: {Map} (phase {Phase}, match map {MatchMap})", mapName, phase, matchMap?.ToString() ?? "-");
 
         AddTimer(1.0f, () =>
         {
-            if (phase == MatchPhase.MapChangePending)
+            // The engine can report the same map load more than once; any load of the
+            // veto's map keeps us on the match map instead of resetting to warmup.
+            if (IsMatchMapLoad(mapName))
             {
+                matchMapLoadedName = mapName;
                 EnterMatchReady();
             }
             else
@@ -86,9 +94,18 @@ public partial class Birka5v5Plugin : BasePlugin
         });
     }
 
+    private bool IsMatchMapLoad(string mapName)
+    {
+        if (matchMap == null || phase is not (MatchPhase.MapChangePending or MatchPhase.WaitingForMatchReady)) return false;
+        if (matchMapLoadedName != null) return mapName.Equals(matchMapLoadedName, StringComparison.OrdinalIgnoreCase);
+        // First load: workshop maps load under their own internal name.
+        return matchMap.IsWorkshop || mapName.Equals(matchMap.Name, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void SetPhase(MatchPhase newPhase)
     {
         KillPhaseTimers();
+        if (phase != newPhase) Logger.LogInformation("Phase {Old} -> {New}", phase, newPhase);
         phase = newPhase;
     }
 
@@ -112,6 +129,7 @@ public partial class Birka5v5Plugin : BasePlugin
         vetoVoteTimer = null;
         disconnectTimer = null;
         autoUnpauseTimer = null;
+        autoStartTimer = null;
     }
 
     // ---- Phase entry points ----
@@ -129,7 +147,9 @@ public partial class Birka5v5Plugin : BasePlugin
         ResetVetoState();
         ClearVetoHud();
         StopEloTracking();
-        balancedTeams.Clear();
+        matchTeams.Clear();
+        matchMap = null;
+        matchMapLoadedName = null;
 
         ExecPhaseCfg("warmup.cfg");
         StartReadyReminder();
@@ -149,24 +169,35 @@ public partial class Birka5v5Plugin : BasePlugin
 
         ExecPhaseCfg("warmup.cfg");
         StartReadyReminder();
-        AddPhaseTimer(1.0f, ApplyBalancedTeams);
+        // Players who are already back may complete the "everyone back" auto-start.
+        AddPhaseTimer(2.0f, CheckReady);
 
         string next = KnifeEnabled.Value ? "the knife round" : "the match";
-        PrintAll($"Map {Hl(Server.MapName)} loaded. Type {Hl(".ready")} to start {next}.");
+        PrintAll($"Map {Hl(Server.MapName)} loaded. Join any team and type {Hl(".ready")} to start {next}.");
+        if (matchTeams.Count > 0)
+        {
+            PrintAll($"Teams from before the veto are restored when {next} starts. It starts by itself once everyone is back.");
+        }
     }
 
     /// <summary>Called when everyone is ready (or .forcestart) in one of the ready phases.</summary>
     private void OnAllReady()
     {
+        if (phase == MatchPhase.Warmup && VetoEnabled.Value)
+        {
+            // Remember the teams (balanced or as picked) so they can be restored on the match map.
+            if (!EloAutoBalance.Value || !BalanceTeams()) SnapshotMatchTeams();
+            StartVeto();
+            return;
+        }
+
         if (phase == MatchPhase.Warmup && EloAutoBalance.Value)
         {
             BalanceTeams();
         }
-
-        if (phase == MatchPhase.Warmup && VetoEnabled.Value)
+        if (phase == MatchPhase.WaitingForMatchReady)
         {
-            StartVeto();
-            return;
+            RestoreMatchTeams();
         }
         StartMatch();
     }

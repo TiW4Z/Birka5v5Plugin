@@ -63,6 +63,8 @@ public partial class Birka5v5Plugin
     private void CheckReady()
     {
         if (!IsReadyPhase) return;
+        CheckEveryoneBack();
+        if (!IsReadyPhase) return;
 
         var onTeams = TeamPlayers().ToList();
         int ready = onTeams.Count(p => readyPlayers.Contains(p.SteamID));
@@ -95,6 +97,12 @@ public partial class Birka5v5Plugin
                 message += $" Waiting for {RequiredPlayers - onTeams.Count} more player(s).";
             }
             PrintAll(message);
+
+            var missing = phase == MatchPhase.WaitingForMatchReady ? MissingMatchPlayers() : new List<string>();
+            if (missing.Count > 0)
+            {
+                PrintAll($"Starts by itself when everyone is back. Waiting for: {Hl(string.Join(", ", missing))}");
+            }
         }, repeat: true);
     }
 
@@ -105,6 +113,8 @@ public partial class Birka5v5Plugin
         {
             readyPlayers.Remove(player.SteamID);
             OnLivePlayerDisconnect(player);
+            // May cancel the "everyone back" auto-start.
+            if (IsReadyPhase) AddTimer(0.5f, CheckReady);
         }
         return HookResult.Continue;
     }

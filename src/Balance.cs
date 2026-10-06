@@ -1,8 +1,8 @@
 using System.Numerics;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
-using CounterStrikeSharp.API.Modules.Commands;
 using CounterStrikeSharp.API.Modules.Utils;
+using Timer = CounterStrikeSharp.API.Modules.Timers.Timer;
 
 namespace Birka5v5;
 
@@ -10,8 +10,9 @@ public partial class Birka5v5Plugin
 {
     private const int MaxBalancePlayers = 16;
 
-    // SteamID -> side (CT/T) chosen by the last balance; enforced on the match map until warmup resets it.
-    private readonly Dictionary<ulong, int> balancedTeams = new();
+    // The teams from before the veto (SteamID -> side at that time), restored when the match starts on the match map.
+    private readonly Dictionary<ulong, int> matchTeams = new();
+    private readonly Dictionary<ulong, string> matchTeamNames = new();
 
     /// <summary>
     /// Splits the T/CT players into the two most even teams by rating. Picks randomly among splits that are
@@ -60,12 +61,14 @@ public partial class Birka5v5Plugin
         int sideA = movesIfACt <= n - movesIfACt ? TeamCT : TeamT;
         int sideB = OtherTeam(sideA);
 
-        balancedTeams.Clear();
+        matchTeams.Clear();
+        matchTeamNames.Clear();
         for (int i = 0; i < n; i++)
         {
             var player = players[i];
             int target = InA(i) ? sideA : sideB;
-            balancedTeams[player.SteamID] = target;
+            matchTeams[player.SteamID] = target;
+            matchTeamNames[player.SteamID] = player.PlayerName;
             if (player.TeamNum != target) player.ChangeTeam((CsTeam)target);
         }
 
@@ -109,39 +112,101 @@ public partial class Birka5v5Plugin
         return groupA.Count == 1 && groupB.Count == 1 && groupA[0] != groupB[0];
     }
 
-    /// <summary>On the match map: put players back on the side the balance gave them.</summary>
-    private void ApplyBalancedTeams()
+    // ---- Teams from before the veto ----
+
+    /// <summary>Remembers the current T/CT players as the match teams (used when autobalance is off).</summary>
+    private void SnapshotMatchTeams()
     {
-        if (phase != MatchPhase.WaitingForMatchReady || balancedTeams.Count == 0) return;
-        foreach (var player in HumanPlayers())
+        matchTeams.Clear();
+        matchTeamNames.Clear();
+        foreach (var player in TeamPlayers().Where(p => p.SteamID != 0))
         {
-            if (balancedTeams.TryGetValue(player.SteamID, out int side) && player.TeamNum != side)
+            matchTeams[player.SteamID] = player.TeamNum;
+            matchTeamNames[player.SteamID] = player.PlayerName;
+        }
+    }
+
+    /// <summary>
+    /// When the match starts on the match map: put everyone from before the veto back with their teammates.
+    /// Which side each group ends up on doesn't matter (the knife round decides), so use the one needing fewer moves.
+    /// Players who weren't in the teams before the veto stay where they are.
+    /// </summary>
+    private void RestoreMatchTeams()
+    {
+        var players = TeamPlayers().Where(p => matchTeams.ContainsKey(p.SteamID)).ToList();
+        if (players.Count == 0) return;
+
+        int movesKeep = players.Count(p => p.TeamNum != matchTeams[p.SteamID]);
+        int movesSwap = players.Count(p => p.TeamNum != OtherTeam(matchTeams[p.SteamID]));
+        bool swap = movesSwap < movesKeep;
+
+        int moved = 0;
+        foreach (var player in players)
+        {
+            int target = swap ? OtherTeam(matchTeams[player.SteamID]) : matchTeams[player.SteamID];
+            if (player.TeamNum == target) continue;
+            player.ChangeTeam((CsTeam)target);
+            moved++;
+        }
+        if (moved > 0) PrintAll($"Teams restored from before the veto ({moved} player(s) moved).");
+    }
+
+    private Timer? autoStartTimer;
+    private int autoStartSeconds;
+
+    /// <summary>Match-team players who are not on T/CT right now.</summary>
+    private List<string> MissingMatchPlayers()
+    {
+        var onTeams = TeamPlayers().Select(p => p.SteamID).ToHashSet();
+        return matchTeams.Keys.Where(id => !onTeams.Contains(id))
+            .Select(id => matchTeamNames.GetValueOrDefault(id, id.ToString())).ToList();
+    }
+
+    /// <summary>On the match map: start by itself (after a countdown) once everyone from before the veto is back on a team.</summary>
+    private void CheckEveryoneBack()
+    {
+        if (phase != MatchPhase.WaitingForMatchReady || matchTeams.Count == 0) return;
+
+        var missing = MissingMatchPlayers();
+        if (missing.Count == 0 && autoStartTimer == null)
+        {
+            autoStartSeconds = 10;
+            string next = KnifeEnabled.Value ? "The knife round" : "The match";
+            PrintAll($"{ChatColors.Lime}Everyone is back!{ChatColors.Default} {next} starts in {autoStartSeconds} seconds.");
+            autoStartTimer = AddPhaseTimer(1.0f, () =>
             {
-                player.ChangeTeam((CsTeam)side);
-            }
+                autoStartSeconds--;
+                if (autoStartSeconds > 0)
+                {
+                    if (autoStartSeconds <= 3 || autoStartSeconds == 5) PrintAll($"Starting in {autoStartSeconds}...");
+                    return;
+                }
+                autoStartTimer?.Kill();
+                autoStartTimer = null;
+                if (phase == MatchPhase.WaitingForMatchReady) OnAllReady();
+            }, repeat: true);
+        }
+        else if (missing.Count > 0 && autoStartTimer != null)
+        {
+            autoStartTimer.Kill();
+            autoStartTimer = null;
+            PrintAll($"{ChatColors.Red}Start cancelled,{ChatColors.Default} waiting for {Hl(string.Join(", ", missing))}.");
         }
     }
 
     private HookResult OnPlayerConnectFull(EventPlayerConnectFull @event, GameEventInfo info)
     {
-        if (phase == MatchPhase.WaitingForMatchReady && balancedTeams.Count > 0)
+        var player = @event.Userid;
+        if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
+
+        // Reconnecting players can be put straight back on their team without a team-change event.
+        AddTimer(3.0f, () =>
         {
-            AddTimer(1.0f, ApplyBalancedTeams);
-        }
+            if (!player.IsValid) return;
+            if (IsOnTeam(player)) OnPlayerRejoinedTeam(player);
+            if (IsReadyPhase) CheckReady();
+        });
         return HookResult.Continue;
-    }
-
-    /// <summary>jointeam during WaitingForMatchReady: keep balanced players on their side.</summary>
-    private bool BlocksBalancedJoin(CCSPlayerController player, CommandInfo info)
-    {
-        if (phase != MatchPhase.WaitingForMatchReady) return false;
-        if (!balancedTeams.TryGetValue(player.SteamID, out int side)) return false;
-        if (!int.TryParse(info.GetArg(1), out int requested)) return false;
-        if (requested != TeamT && requested != TeamCT) return false; // spectating is fine
-        if (requested == side) return false;
-
-        Reply(player, $"Teams are balanced for this match, you play on {TeamName(side)}.");
-        return true;
     }
 
     private void CmdBalance(CCSPlayerController player, string[] args)
@@ -153,8 +218,7 @@ public partial class Birka5v5Plugin
         {
             bool enabled = sub == "on";
             EloAutoBalance.Value = enabled;
-            SaveConfigValue("birka_elo_autobalance", enabled ? "1" : "0", quote: false);
-            PrintAll($"Auto team balancing {(enabled ? $"{ChatColors.Lime}enabled" : $"{ChatColors.Red}disabled")}{ChatColors.Default}.");
+            PrintAll($"Auto team balancing {(enabled ? $"{ChatColors.Lime}enabled" : $"{ChatColors.Red}disabled")}{ChatColors.Default}{UntilRestart}.");
             return;
         }
         if (sub.Length > 0)

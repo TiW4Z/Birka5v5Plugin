@@ -190,11 +190,10 @@ public partial class Birka5v5Plugin
         return pool;
     }
 
+    /// <summary>Changes the pool for the running server only; config.cfg applies again after a restart.</summary>
     private void SetMapPool(List<MapEntry> pool)
     {
-        string value = string.Join(",", pool.Select(m => m.ToString()));
-        VetoMaps.Value = value;
-        SaveConfigValue("birka_veto_maps", value, quote: true);
+        VetoMaps.Value = string.Join(",", pool.Select(m => m.ToString()));
     }
 
     /// <summary>Finds a map in a list by 1-based number, exact name, name without de_, or unique prefix.</summary>

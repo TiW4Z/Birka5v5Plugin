@@ -310,8 +310,11 @@ public partial class Birka5v5Plugin
         ClearVetoHud();
         UnfreezeVeto();
 
+        matchMap = map;
+        matchMapLoadedName = null;
         if (!map.IsWorkshop && Server.MapName.Equals(map.Name, StringComparison.OrdinalIgnoreCase))
         {
+            matchMapLoadedName = Server.MapName;
             EnterMatchReady();
             return;
         }
@@ -355,8 +358,7 @@ public partial class Birka5v5Plugin
             {
                 bool enabled = sub == "" ? !VetoEnabled.Value : sub == "on";
                 VetoEnabled.Value = enabled;
-                SaveConfigValue("birka_veto_enabled", enabled ? "1" : "0", quote: false);
-                PrintAll($"Map veto {(enabled ? $"{ChatColors.Lime}enabled" : $"{ChatColors.Red}disabled")}{ChatColors.Default}.");
+                PrintAll($"Map veto {(enabled ? $"{ChatColors.Lime}enabled" : $"{ChatColors.Red}disabled")}{ChatColors.Default}{UntilRestart}.");
                 break;
             }
             case "add":
@@ -376,8 +378,7 @@ public partial class Birka5v5Plugin
                     return;
                 }
                 VetoMode.Value = mode;
-                SaveConfigValue("birka_veto_mode", mode, quote: true);
-                PrintAll($"Veto mode set to {Hl(mode)}.");
+                PrintAll($"Veto mode set to {Hl(mode)}{UntilRestart}.");
                 if (mode == "pick" && GetMapPool().Count < 4)
                 {
                     Reply(player, $"{ChatColors.Red}Pick mode needs at least 4 maps in the pool.");
@@ -432,7 +433,7 @@ public partial class Birka5v5Plugin
 
         pool.Add(entry);
         SetMapPool(pool);
-        PrintAll($"Added {Hl(entry.Name)} to the veto pool ({pool.Count} maps).");
+        PrintAll($"Added {Hl(entry.Name)} to the veto pool ({pool.Count} maps){UntilRestart}.");
     }
 
     private void VetoRemove(CCSPlayerController player, string[] args)
@@ -458,7 +459,7 @@ public partial class Birka5v5Plugin
 
         pool.Remove(map);
         SetMapPool(pool);
-        PrintAll($"Removed {Hl(map.Name)} from the veto pool ({pool.Count} maps).");
+        PrintAll($"Removed {Hl(map.Name)} from the veto pool ({pool.Count} maps){UntilRestart}.");
         if (IsPickMode && pool.Count < 4)
         {
             Reply(player, $"{ChatColors.Red}Pick mode needs at least 4 maps; ban mode will be used until more are added.");

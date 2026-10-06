@@ -1,5 +1,3 @@
-using System.Text;
-using System.Text.RegularExpressions;
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Cvars;
@@ -10,6 +8,9 @@ namespace Birka5v5;
 public partial class Birka5v5Plugin
 {
     private const string CfgFolder = "Birka5v5";
+    // In-game setting changes only last until the server (or plugin) restarts; config.cfg is never written.
+    private const string UntilRestart = " (until server restart)";
+
     private const string DefaultMapPool = "de_ancient,de_anubis,de_dust2,de_inferno,de_mirage,de_nuke,de_train";
 
     public FakeConVar<string> ChatPrefix = new("birka_chat_prefix", "Chat prefix for plugin messages", "[Birka]");
@@ -55,7 +56,9 @@ public partial class Birka5v5Plugin
     private static string ConfigFilePath => Path.Combine(CfgDirectory, "config.cfg");
 
     private const string DefaultConfig = """
-        // Birka5v5 settings. Executed when the plugin loads.
+        // Birka5v5 settings. Read when the server (or plugin) starts.
+        // In-game changes (.veto, .veto add/remove/mode, .balance on/off) only last until the next restart;
+        // the plugin never writes to this file.
         // Keep string values in quotes.
 
         // Chat prefix for plugin messages
@@ -162,34 +165,6 @@ public partial class Birka5v5Plugin
             _ => "mp_warmup_end",
         };
         Server.ExecuteCommand(fallback);
-    }
-
-    /// <summary>Rewrites (or appends) a single setting line in config.cfg so in-game changes persist.</summary>
-    private void SaveConfigValue(string name, string value, bool quote)
-    {
-        try
-        {
-            EnsureConfigFiles();
-            string line = quote ? $"{name} \"{value}\"" : $"{name} {value}";
-            string text = File.ReadAllText(ConfigFilePath);
-            var regex = new Regex($@"^[ \t]*{Regex.Escape(name)}[ \t].*$", RegexOptions.Multiline);
-
-            if (regex.IsMatch(text))
-            {
-                text = regex.Replace(text, line.Replace("$", "$$"), 1);
-            }
-            else
-            {
-                if (!text.EndsWith('\n')) text += Environment.NewLine;
-                text += line + Environment.NewLine;
-            }
-
-            File.WriteAllText(ConfigFilePath, text, new UTF8Encoding(false));
-        }
-        catch (Exception ex)
-        {
-            Logger.LogError(ex, "Could not save {Name} to config.cfg", name);
-        }
     }
 
     /// <summary>String convar values may arrive with surrounding quotes depending on how they were set.</summary>

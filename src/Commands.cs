@@ -97,7 +97,7 @@ public partial class Birka5v5Plugin
             Reply(player, "Teams are locked right now.");
             return HookResult.Handled;
         }
-        return BlocksBalancedJoin(player, info) ? HookResult.Handled : HookResult.Continue;
+        return HookResult.Continue;
     }
 
     private void CmdHelp(CCSPlayerController player)
