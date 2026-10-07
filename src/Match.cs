@@ -57,7 +57,7 @@ public partial class Birka5v5Plugin
         // The engine's own end-of-match restart is pushed far enough out that it never happens.
         int tvDelay = GetTvDelay();
         int reloadAt = tvDelay + 20;
-        Server.ExecuteCommand($"mp_match_restart_delay {reloadAt + 120}");
+        Server.ExecuteCommand($"mp_match_restart_delay {reloadAt + 1}");
         PrintAll($"Back to warmup in {reloadAt} seconds (the map reloads).");
 
         AddPhaseTimer(reloadAt, ReloadMapAfterMatch);
