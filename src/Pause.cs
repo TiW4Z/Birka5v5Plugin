@@ -27,13 +27,13 @@ public partial class Birka5v5Plugin
         isPaused = false;
         unpauseT = false;
         unpauseCT = false;
-        pauseReminderTimer?.Kill();
+        StopPhaseTimer(pauseReminderTimer);
         pauseReminderTimer = null;
         missingPlayers.Clear();
         disconnectPause = false;
-        disconnectTimer?.Kill();
+        StopPhaseTimer(disconnectTimer);
         disconnectTimer = null;
-        autoUnpauseTimer?.Kill();
+        StopPhaseTimer(autoUnpauseTimer);
         autoUnpauseTimer = null;
     }
 
@@ -142,7 +142,7 @@ public partial class Birka5v5Plugin
 
     private void StartPauseReminder()
     {
-        pauseReminderTimer?.Kill();
+        StopPhaseTimer(pauseReminderTimer);
         pauseReminderTimer = AddPhaseTimer(Math.Max(5, ReminderInterval.Value), () =>
         {
             if (!isPaused) return;
@@ -176,7 +176,7 @@ public partial class Birka5v5Plugin
         }
 
         missingPlayers[player.SteamID] = player.PlayerName;
-        autoUnpauseTimer?.Kill();
+        StopPhaseTimer(autoUnpauseTimer);
         autoUnpauseTimer = null;
 
         if (!isPaused)
@@ -221,7 +221,7 @@ public partial class Birka5v5Plugin
         PrintAll($"{Hl(player.PlayerName)} is back.");
         if (missingPlayers.Count > 0 || !disconnectPause) return;
 
-        disconnectTimer?.Kill();
+        StopPhaseTimer(disconnectTimer);
         disconnectTimer = null;
         PrintAll($"{ChatColors.Lime}Everyone is back, unpausing in 10 seconds.");
         autoUnpauseTimer = AddPhaseTimer(10.0f, () =>

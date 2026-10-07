@@ -217,7 +217,7 @@ public partial class Birka5v5Plugin
         if (voters.Count > 0 && voters.All(p => vetoBallots.ContainsKey(p.SteamID)))
         {
             vetoVoteActive = false;
-            vetoVoteTimer?.Kill();
+            StopPhaseTimer(vetoVoteTimer);
             AddPhaseTimer(1.0f, CloseVetoVote);
         }
     }
@@ -228,7 +228,7 @@ public partial class Birka5v5Plugin
         if (step == null) return;
 
         vetoVoteActive = false;
-        vetoVoteTimer?.Kill();
+        StopPhaseTimer(vetoVoteTimer);
         vetoVoteTimer = null;
 
         var available = AvailableMaps.ToList();

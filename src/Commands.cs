@@ -113,6 +113,16 @@ public partial class Birka5v5Plugin
     {
         if (!RequireAdmin(player)) return;
         PrintAll($"{ChatColors.Red}Admin reset the match.");
+
+        // Finishing a demo with tv_stoprecord freezes the server and can drop players;
+        // reloading the map ends the recording safely and lands in warmup.
+        if (demoRecording)
+        {
+            PrintAll("Reloading the map to finish the demo...");
+            SetPhase(MatchPhase.PostMatch);
+            ReloadMapAfterMatch();
+            return;
+        }
         EnterWarmup();
     }
 
@@ -176,7 +186,7 @@ public partial class Birka5v5Plugin
     {
         info.ReplyToCommand($"[Birka5v5] phase={phase} ready={ReadyCount()}/{PlayersRequired.Value} veto={(VetoEnabled.Value ? Clean(VetoMode.Value) : "off")} pool={Clean(VetoMaps.Value)} paused={isPaused} demo={demoRecording}");
         info.ReplyToCommand($"[Birka5v5] elo enabled={EloEnabled.Value} autobalance={EloAutoBalance.Value} players={eloData.Players.Count} rated_rounds={eloRounds.Count} tracking={eloTracking} load_failed={eloLoadFailed}");
-        info.ReplyToCommand($"[Birka5v5] tv_enable={GetConVarNumber("tv_enable")} tv_autorecord={GetConVarNumber("tv_autorecord")} gotv_connected={IsGotvConnected()} demo_folder={Path.Combine(EngineWriteDirectory(), GetDemoFolder())}");
+        info.ReplyToCommand($"[Birka5v5] tv_enable={GetConVarNumber("tv_enable")} tv_autorecord={GetConVarNumber("tv_autorecord")} gotv_connected={IsGotvConnected()} demo_folder={FinalDemoDir} recording_to={EngineDemoDir}");
         if (matchId.Length > 0)
         {
             var backups = FindBackupFiles();

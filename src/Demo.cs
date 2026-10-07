@@ -8,9 +8,13 @@ namespace Birka5v5;
 public partial class Birka5v5Plugin
 {
     private bool demoRecording;
+    private string activeDemoEnginePath = "";
 
-    // Like MatchZy: tv_record with a path relative to the engine's write folder. With Metamod installed
-    // that folder is csgo/addons/metamod, so demos end up in csgo/addons/metamod/<birka_demo_path>.
+    // tv_record writes relative to the engine's write folder (csgo/addons/metamod with Metamod installed);
+    // finished demos are moved to csgo/<birka_demo_path> so they are all in one place.
+    private string EngineDemoDir => Path.Combine(EngineWriteDirectory(), GetDemoFolder()).TrimEnd('/', '\\');
+    private string FinalDemoDir => Path.Combine(Server.GameDirectory, "csgo", GetDemoFolder()).TrimEnd('/', '\\');
+
     private void StartDemo()
     {
         if (!DemoEnabled.Value || demoRecording) return;
@@ -47,6 +51,7 @@ public partial class Birka5v5Plugin
         Logger.LogInformation("Starting demo: tv_record \"{File}\" -> {Path}", file, enginePath);
         Server.ExecuteCommand($"tv_record \"{file}\"");
         demoRecording = true;
+        activeDemoEnginePath = enginePath;
 
         AddTimer(5.0f, () => VerifyDemoStarted(enginePath, gotvConnected), TimerFlags.STOP_ON_MAPCHANGE);
     }
@@ -77,12 +82,78 @@ public partial class Birka5v5Plugin
         if (!demoRecording) return;
         demoRecording = false;
 
-        if (delay <= 0)
+        string finished = activeDemoEnginePath;
+        void Stop()
         {
             Server.ExecuteCommand("tv_stoprecord");
-            return;
+            AddTimer(10.0f, () => MoveDemosToFinalFolder(finished));
         }
-        AddTimer(delay, () => Server.ExecuteCommand("tv_stoprecord"));
+
+        if (delay <= 0) Stop();
+        else AddTimer(delay, Stop);
+    }
+
+    /// <summary>A map change ends the recording without tv_stoprecord.</summary>
+    private void OnDemoEndedByMapChange()
+    {
+        string? ended = demoRecording ? activeDemoEnginePath : null;
+        demoRecording = false;
+        AddTimer(10.0f, () => MoveDemosToFinalFolder(ended));
+    }
+
+    /// <summary>
+    /// Moves finished demos from the engine's write folder to csgo/&lt;birka_demo_path&gt;. Also picks up demos left
+    /// behind earlier. Files written to in the last 2 minutes are skipped (they may still be recording),
+    /// except <paramref name="finishedFile"/>, which is known to be closed.
+    /// </summary>
+    private void MoveDemosToFinalFolder(string? finishedFile = null)
+    {
+        string engineDir = EngineDemoDir;
+        string finalDir = FinalDemoDir;
+        try
+        {
+            if (!Directory.Exists(engineDir) || SameDirectory(engineDir, finalDir)) return;
+            Directory.CreateDirectory(finalDir);
+
+            foreach (var file in Directory.EnumerateFiles(engineDir, "*.dem").ToList())
+            {
+                bool isFinished = finishedFile != null && SamePath(file, finishedFile);
+                if (demoRecording && SamePath(file, activeDemoEnginePath)) continue;
+                if (!isFinished && File.GetLastWriteTimeUtc(file) > DateTime.UtcNow.AddMinutes(-2)) continue;
+
+                try
+                {
+                    string target = UniqueFilePath(finalDir, Path.GetFileName(file));
+                    File.Move(file, target);
+                    Logger.LogInformation("Demo saved to {Path}", target);
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError(ex, "Could not move demo {File} to {Folder}", file, finalDir);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Logger.LogError(ex, "Could not move demos from {From} to {To}", engineDir, finalDir);
+        }
+    }
+
+    /// <summary>True if both point at the same folder, also when one is a link to the other (v1.0.5 created one).</summary>
+    private static bool SameDirectory(string a, string b)
+    {
+        var info = new DirectoryInfo(a);
+        string resolved = info.LinkTarget != null ? info.ResolveLinkTarget(true)?.FullName ?? a : a;
+        return SamePath(resolved.TrimEnd('/', '\\'), b.TrimEnd('/', '\\'));
+    }
+
+    private static string UniqueFilePath(string folder, string fileName)
+    {
+        string path = Path.Combine(folder, fileName);
+        string name = Path.GetFileNameWithoutExtension(fileName);
+        string ext = Path.GetExtension(fileName);
+        for (int i = 2; File.Exists(path); i++) path = Path.Combine(folder, $"{name}_{i}{ext}");
+        return path;
     }
 
     /// <summary>birka_demo_path, normalised to a safe relative folder ending in '/'.</summary>

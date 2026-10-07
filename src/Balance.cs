@@ -181,14 +181,14 @@ public partial class Birka5v5Plugin
                     if (autoStartSeconds <= 3 || autoStartSeconds == 5) PrintAll($"Starting in {autoStartSeconds}...");
                     return;
                 }
-                autoStartTimer?.Kill();
+                StopPhaseTimer(autoStartTimer);
                 autoStartTimer = null;
                 if (phase == MatchPhase.WaitingForMatchReady) OnAllReady();
             }, repeat: true);
         }
         else if (missing.Count > 0 && autoStartTimer != null)
         {
-            autoStartTimer.Kill();
+            StopPhaseTimer(autoStartTimer);
             autoStartTimer = null;
             PrintAll($"{ChatColors.Red}Start cancelled,{ChatColors.Default} waiting for {Hl(string.Join(", ", missing))}.");
         }
@@ -200,7 +200,7 @@ public partial class Birka5v5Plugin
         if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
 
         // Reconnecting players can be put straight back on their team without a team-change event.
-        AddTimer(3.0f, () =>
+        RunLater(3.0f, () =>
         {
             if (!player.IsValid) return;
             if (IsOnTeam(player)) OnPlayerRejoinedTeam(player);

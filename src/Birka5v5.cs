@@ -57,8 +57,11 @@ public partial class Birka5v5Plugin : BasePlugin
         // On a fresh server start OnMapStart handles this; on a hot reload the map is already running.
         if (hotReload)
         {
-            AddTimer(1.0f, EnterWarmup);
+            RunLater(1.0f, EnterWarmup);
         }
+
+        // Pick up demos left in the engine's write folder (older versions, crashes).
+        AddTimer(10.0f, () => MoveDemosToFinalFolder());
 
         Logger.LogInformation("Birka5v5 loaded");
     }
@@ -74,11 +77,11 @@ public partial class Birka5v5Plugin : BasePlugin
 
     private void OnMapStart(string mapName)
     {
-        // Any recording ends when the map changes.
-        demoRecording = false;
+        // Any recording ends when the map changes; move it (and any leftovers) to the demo folder.
+        OnDemoEndedByMapChange();
         Logger.LogInformation("Map start: {Map} (phase {Phase}, match map {MatchMap})", mapName, phase, matchMap?.ToString() ?? "-");
 
-        AddTimer(1.0f, () =>
+        RunLater(1.0f, () =>
         {
             // The engine can report the same map load more than once; any load of the
             // veto's map keeps us on the match map instead of resetting to warmup.
@@ -113,10 +116,27 @@ public partial class Birka5v5Plugin : BasePlugin
     {
         var flags = TimerFlags.STOP_ON_MAPCHANGE;
         if (repeat) flags |= TimerFlags.REPEAT;
-        var timer = AddTimer(seconds, callback, flags);
+
+        // The work runs on the next frame, outside the engine's timer loop: callbacks change phases, which
+        // kills other timers, and doing that while the timer system is iterating crashed the server.
+        // A timer stopped in between never runs its work.
+        Timer? timer = null;
+        timer = AddTimer(seconds, () => Server.NextFrame(() =>
+        {
+            if (timer != null && phaseTimers.Contains(timer)) callback();
+        }), flags);
         phaseTimers.Add(timer);
         return timer;
     }
+
+    /// <summary>Stops one phase timer early.</summary>
+    private void StopPhaseTimer(Timer? timer)
+    {
+        if (timer != null && phaseTimers.Remove(timer)) timer.Kill();
+    }
+
+    /// <summary>One-off delay whose work runs outside the timer loop (safe to change phases from).</summary>
+    private void RunLater(float seconds, Action action) => AddTimer(seconds, () => Server.NextFrame(action));
 
     private void KillPhaseTimers()
     {

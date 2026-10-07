@@ -25,7 +25,7 @@ public partial class Birka5v5Plugin
     public FakeConVar<bool> KnifeEnabled = new("birka_knife_enabled", "Play a knife round to decide sides", true);
     public FakeConVar<int> KnifeDecisionTime = new("birka_knife_decision_time", "Seconds the knife winners have to pick .stay/.switch (then stay)", 60);
     public FakeConVar<bool> DemoEnabled = new("birka_demo_enabled", "Record a GOTV demo of each match", true);
-    public FakeConVar<string> DemoPath = new("birka_demo_path", "Demo folder, relative to the game's write folder (csgo/addons/metamod with Metamod)", "birka_demos/");
+    public FakeConVar<string> DemoPath = new("birka_demo_path", "Demo folder, relative to csgo/ (finished demos are moved there)", "birka_demos/");
     public FakeConVar<bool> PauseEnabled = new("birka_pause_enabled", "Allow players to use .pause", true);
     public FakeConVar<int> ReminderInterval = new("birka_reminder_interval", "Seconds between ready/pause chat reminders", 30);
     public FakeConVar<bool> DamageReport = new("birka_damage_report", "Show each player a damage report after every live round", true);
@@ -91,7 +91,8 @@ public partial class Birka5v5Plugin
         birka_knife_decision_time 60
 
         // GOTV demos (requires tv_enable 1 in server.cfg).
-        // Saved in csgo/addons/metamod/<birka_demo_path> (the game writes files to the Metamod folder)
+        // Finished demos are saved in csgo/<birka_demo_path>. (While recording, the game writes them to the
+        // same folder under csgo/addons/metamod; the plugin moves them when recording ends.)
         birka_demo_enabled 1
         birka_demo_path "birka_demos/"
 

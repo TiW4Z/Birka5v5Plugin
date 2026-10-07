@@ -1,6 +1,7 @@
 using CounterStrikeSharp.API;
 using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Modules.Utils;
+using Microsoft.Extensions.Logging;
 
 namespace Birka5v5;
 
@@ -50,20 +51,34 @@ public partial class Birka5v5Plugin
         SetPhase(MatchPhase.PostMatch);
         ResetPauseState();
 
-        // Give GOTV time to flush the broadcast delay before stopping the demo (same timing as Get5/MatchZy).
+        // Finishing a demo with tv_stoprecord froze the server for ~1 s ("Long frame") and dropped players with
+        // "Overflow". So the demo is not stopped here: the map reload below ends the recording while everyone is
+        // loading anyway. Waiting tv_delay + 20 s lets GOTV's delayed broadcast reach the end of the match first.
+        // The engine's own end-of-match restart is pushed far enough out that it never happens.
         int tvDelay = GetTvDelay();
-        int restartDelay = (int)GetConVarNumber("mp_match_restart_delay");
-        int requiredDelay = tvDelay + 15 + (tvDelay > 0 ? 10 : 0);
-        if (requiredDelay > restartDelay)
-        {
-            Server.ExecuteCommand($"mp_match_restart_delay {requiredDelay}");
-            restartDelay = requiredDelay;
-        }
+        int reloadAt = tvDelay + 20;
+        Server.ExecuteCommand($"mp_match_restart_delay {reloadAt + 120}");
+        PrintAll($"Back to warmup in {reloadAt} seconds (the map reloads).");
 
-        StopDemo(tvDelay + 14.5f);
-
-        // Back to warmup just after the engine has restarted the match.
-        AddPhaseTimer(restartDelay + 1, EnterWarmup);
+        AddPhaseTimer(reloadAt, ReloadMapAfterMatch);
         return HookResult.Continue;
+    }
+
+    /// <summary>Reloads the current map; OnMapStart then puts the server back into warmup.</summary>
+    private void ReloadMapAfterMatch()
+    {
+        // Workshop maps need their id; the veto's entry has it when the match map came from the veto.
+        MapEntry? current = matchMap != null && (matchMap.IsWorkshop || matchMap.Name.Equals(Server.MapName, StringComparison.OrdinalIgnoreCase))
+            ? matchMap
+            : new MapEntry(Server.MapName, null);
+
+        Logger.LogInformation("Reloading {Map} after the match", current);
+        if (!ChangeMap(current))
+        {
+            // Couldn't reload (e.g. unknown workshop id): go back to warmup on the running map
+            // (this stops the demo with tv_stoprecord instead).
+            Logger.LogWarning("Could not reload {Map}, returning to warmup without a map change", current);
+            EnterWarmup();
+        }
     }
 }

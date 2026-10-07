@@ -38,8 +38,8 @@ Built against CounterStrikeSharp.API 1.0.368 (the last net8.0 release); it also 
 | Map change | `changelevel`, or `host_workshop_map` for workshop entries. |
 | Match ready | `warmup.cfg` again. Players join any team. Starts when everyone types `.ready`, an admin uses `.forcestart`, or by itself (10 s countdown) once everyone from before the veto is back on a team. The teams from before the veto are restored as it starts. |
 | Knife | `knife.cfg`. The winners type `.stay` or `.switch` (auto-stay after `birka_knife_decision_time`). |
-| Live | `live.cfg`, round backups `birka_<matchid>_roundNN.txt`, demo recording to `csgo/addons/metamod/birka_demos/` (the game writes files to the Metamod folder, same as MatchZy). |
-| Match end | Demo stops after the GOTV delay, then the server returns to warmup. |
+| Live | `live.cfg`, round backups `birka_<matchid>_roundNN.txt`, demo recording. Finished demos are moved to `csgo/birka_demos/` (the game records into `csgo/addons/metamod/birka_demos/` first). |
+| Match end | After the GOTV delay + 20 s the plugin reloads the map, which also finishes the demo, and the server returns to warmup. (Stopping the demo with `tv_stoprecord` and the game's own end-of-match restart both dropped players with "Overflow".) |
 
 With `.veto` off, the first ready-up goes straight to the knife round on the current map.
 

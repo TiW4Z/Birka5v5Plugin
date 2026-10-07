@@ -114,7 +114,7 @@ public partial class Birka5v5Plugin
             readyPlayers.Remove(player.SteamID);
             OnLivePlayerDisconnect(player);
             // May cancel the "everyone back" auto-start.
-            if (IsReadyPhase) AddTimer(0.5f, CheckReady);
+            if (IsReadyPhase) RunLater(0.5f, CheckReady);
         }
         return HookResult.Continue;
     }
@@ -122,7 +122,7 @@ public partial class Birka5v5Plugin
     private HookResult OnPlayerTeam(EventPlayerTeam @event, GameEventInfo info)
     {
         // Someone moving to spectator may complete the ready check.
-        if (IsReadyPhase) AddTimer(0.2f, CheckReady);
+        if (IsReadyPhase) RunLater(0.2f, CheckReady);
 
         var player = @event.Userid;
         if (!@event.Disconnect && player != null && player.IsValid && !player.IsBot
