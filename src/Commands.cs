@@ -27,6 +27,9 @@ public partial class Birka5v5Plugin
             ["stay"] = (p, _) => CmdKnifeChoice(p, swap: false),
             ["switch"] = (p, _) => CmdKnifeChoice(p, swap: true),
             ["swap"] = (p, _) => CmdKnifeChoice(p, swap: true),
+            ["ct"] = (p, _) => CmdKnifeSide(p, TeamCT),
+            ["t"] = (p, _) => CmdKnifeSide(p, TeamT),
+            ["knife"] = CmdKnife,
             ["pause"] = (p, _) => CmdPause(p),
             ["p"] = (p, _) => CmdPause(p),
             ["unpause"] = (p, _) => CmdUnpause(p),
@@ -102,10 +105,10 @@ public partial class Birka5v5Plugin
 
     private void CmdHelp(CCSPlayerController player)
     {
-        Reply(player, $"{Hl(".ready")}/{Hl(".unready")}, {Hl(".pause")}/{Hl(".unpause")}, {Hl(".veto list")}, vote with a number during the veto, {Hl(".stay")}/{Hl(".switch")} after knife, {Hl(".elo [name]")}, {Hl(".top")}.");
+        Reply(player, $"{Hl(".ready")}/{Hl(".unready")}, {Hl(".pause")}/{Hl(".unpause")}, {Hl(".veto list")}, vote with a number during the veto, {Hl(".ct")}/{Hl(".t")} (or {Hl(".stay")}/{Hl(".switch")}) after knife, {Hl(".elo [name]")}, {Hl(".top")}.");
         if (IsAdmin(player))
         {
-            Reply(player, $"Admin: {Hl(".forcestart")}, {Hl(".veto")} (toggle), {Hl(".veto add/remove <map>")}, {Hl(".veto mode ban|pick")}, {Hl(".restore <round>")}, {Hl(".forcepause")}, {Hl(".forceunpause")}, {Hl(".reset")}/{Hl(".rr")}, {Hl(".map <name>")}, {Hl(".balance [on|off]")}, {Hl(".elo set <name> <rating>")}");
+            Reply(player, $"Admin: {Hl(".forcestart")}, {Hl(".veto")} (toggle), {Hl(".knife")} (toggle), {Hl(".veto add/remove <map>")}, {Hl(".veto mode ban|pick")}, {Hl(".restore <round>")}, {Hl(".forcepause")}, {Hl(".forceunpause")}, {Hl(".reset")}/{Hl(".rr")}, {Hl(".map <name>")}, {Hl(".balance [on|off]")}, {Hl(".elo set <name> <rating>")}");
         }
     }
 

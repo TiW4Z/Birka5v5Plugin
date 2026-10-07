@@ -82,7 +82,41 @@ public partial class Birka5v5Plugin
     private void AnnounceKnifeDecision()
     {
         if (phase != MatchPhase.KnifeDecision) return;
-        PrintAll($"{TeamName(knifeWinner)} won the knife round! Type {Hl(".stay")} or {Hl(".switch")}.");
+        PrintAll($"{TeamName(knifeWinner)} won the knife round! Type {Hl(".ct")} or {Hl(".t")} (or {Hl(".stay")}/{Hl(".switch")}).");
+    }
+
+    /// <summary>.ct / .t: the knife winners pick the side they want to start on.</summary>
+    private void CmdKnifeSide(CCSPlayerController player, int side)
+    {
+        if (phase != MatchPhase.KnifeDecision) return;
+        if (player.TeamNum != knifeWinner)
+        {
+            Reply(player, "Only the team that won the knife round can choose.");
+            return;
+        }
+        PrintAll($"{Hl(player.PlayerName)} chose to start as {TeamName(side)}.");
+        DecideSides(swap: player.TeamNum != side);
+    }
+
+    /// <summary>.knife [on|off]: admin toggle for the knife round (until server restart).</summary>
+    private void CmdKnife(CCSPlayerController player, string[] args)
+    {
+        if (!RequireAdmin(player)) return;
+
+        string sub = args.Length > 0 ? args[0].ToLowerInvariant() : "";
+        if (sub.Length > 0 && sub is not ("on" or "off"))
+        {
+            Reply(player, "Usage: .knife | .knife on | .knife off");
+            return;
+        }
+
+        bool enabled = sub == "" ? !KnifeEnabled.Value : sub == "on";
+        KnifeEnabled.Value = enabled;
+        PrintAll($"Knife round {(enabled ? $"{ChatColors.Lime}enabled" : $"{ChatColors.Red}disabled")}{ChatColors.Default}{UntilRestart}.");
+        if (phase is MatchPhase.Knife or MatchPhase.KnifeDecision)
+        {
+            Reply(player, "The current knife round is not affected; this applies from the next match.");
+        }
     }
 
     private void CmdKnifeChoice(CCSPlayerController player, bool swap)

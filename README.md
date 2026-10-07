@@ -64,7 +64,8 @@ Every command works with `.` or `!` (e.g. `.ready` / `!ready`).
 | `.r` `.ready` / `.ur` `.unready` `.notready` | everyone | ready / unready |
 | `<number>` `.ban <n\|map>` `.pick <n\|map>` | acting team | veto vote |
 | `.veto list` | everyone | show pool and mode |
-| `.stay` / `.switch` `.swap` | knife winners | choose sides |
+| `.ct` / `.t` | knife winners | start on that side |
+| `.stay` / `.switch` `.swap` | knife winners | keep or swap the current sides |
 | `.pause` `.p` | T/CT | pause now in freezetime, otherwise at the next freezetime |
 | `.unpause` `.up` | T/CT | both teams must type it to resume |
 | `.elo` `.rank` / `.elo <name>` | everyone | rating, W-L-D and rank |
@@ -72,6 +73,7 @@ Every command works with `.` or `!` (e.g. `.ready` / `!ready`).
 | `.help` | everyone | list commands |
 | `.forcestart` | admin | skip the ready check |
 | `.veto` / `.veto on` / `.veto off` | admin | toggle the veto (until restart) |
+| `.knife` / `.knife on` / `.knife off` | admin | toggle the knife round (until restart); without it, sides stay as they are |
 | `.veto add <map>` / `.veto add <name> <workshopid>` | admin | add to pool (until restart) |
 | `.veto remove <map>` | admin | remove from pool (until restart) |
 | `.veto mode ban\|pick` | admin | change veto mode (until restart) |

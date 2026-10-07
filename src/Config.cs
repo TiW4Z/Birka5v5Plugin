@@ -86,7 +86,7 @@ public partial class Birka5v5Plugin
         // Show the veto on the center screen HUD
         birka_veto_hud 1
 
-        // Knife round for sides
+        // Knife round for sides; winners pick with .ct/.t (in-game toggle: .knife)
         birka_knife_enabled 1
         birka_knife_decision_time 60
 
